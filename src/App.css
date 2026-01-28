@@ -2892,6 +2892,27 @@ select.input-field option {
   background: var(--accent-error, #ef4444);
 }
 
+.quality-filter-btn.danger {
+  background: #dc2626;
+  color: white;
+  font-weight: 700;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.quality-filter-btn.danger:hover {
+  background: #b91c1c;
+  opacity: 1;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
 /* Tablet Quality Tags */
 @media (max-width: 768px) {
   .title-with-indicators {

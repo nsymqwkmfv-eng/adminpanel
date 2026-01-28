@@ -49,13 +49,12 @@ const TableRow = memo(({
       'no-price-15ml': { label: 'Missing 15ml Price', short: '⚠️ 15ml', color: '#eab308' },
       'no-price-30ml': { label: 'Missing 30ml Price', short: '⚠️ 30ml', color: '#eab308' },
       'no-price-50ml': { label: 'Missing 50ml Price', short: '⚠️ 50ml', color: '#eab308' },
+      'no-prices': { label: 'No Prices Set (needs at least one)', short: '💰 PRICE', color: '#dc2626' },
       'no-image': { label: 'Missing Image', short: '📷 IMG', color: '#ec4899' },
-      'no-top-notes': { label: 'Missing Top Notes', short: '🔝 Notes', color: '#a78bfa' },
-      'no-heart-notes': { label: 'Missing Heart Notes', short: '❤️ Notes', color: '#a78bfa' },
-      'no-base-notes': { label: 'Missing Base Notes', short: '⬇️ Notes', color: '#a78bfa' },
-      'no-brand': { label: 'Missing Brand', short: '🏷️ Brand', color: '#06b6d4' },
-      'no-link': { label: 'Missing Link', short: '🔗 Link', color: '#3b82f6' },
-      'no-slug': { label: 'Missing Slug', short: '❌ Slug', color: '#ef4444' }
+      'no-notes': { label: 'No Notes at all (top/heart/base all empty)', short: '📝 NOTES', color: '#a78bfa' },
+      'no-brand': { label: 'Missing Brand', short: '🏷️ BRAND', color: '#06b6d4' },
+      'no-slug': { label: 'Missing Slug (Critical!)', short: '❌ SLUG', color: '#dc2626' },
+      'no-title': { label: 'Missing Title (Critical!)', short: '❌ TITLE', color: '#dc2626' }
     }
     return tagMap[issue] || { label: issue, short: issue.toUpperCase(), color: '#6b7280' }
   }
@@ -202,8 +201,98 @@ function App() {
   const [dataQualityIssues, setDataQualityIssues] = useState<Map<string, string[]>>(new Map())
   const [showQualityFilter, setShowQualityFilter] = useState(false)
   const [duplicateFilter, setDuplicateFilter] = useState<string | null>(null)
+  const [completeDuplicates, setCompleteDuplicates] = useState<number>(0)
 
   const theme = isDarkMode ? 'dark' : 'light'
+
+  // Function to remove complete duplicates (all fields identical)
+  const removeCompleteDuplicates = useCallback(() => {
+    const seen = new Map<string, Product>()
+    const uniqueProducts: Product[] = []
+    let removedCount = 0
+
+    products.forEach(product => {
+      // Create a hash of all product fields
+      const productHash = JSON.stringify({
+        title: product.title,
+        slug: product.slug,
+        image: product.image,
+        image_alt: product.image_alt,
+        gender: product.gender,
+        price_15ml: product.price_15ml,
+        price_30ml: product.price_30ml,
+        price_50ml: product.price_50ml,
+        brand: product.brand,
+        top_notes: product.top_notes,
+        heart_notes: product.heart_notes,
+        base_notes: product.base_notes,
+        link: product.link,
+        stock_status: product.stock_status
+      })
+
+      if (!seen.has(productHash)) {
+        seen.set(productHash, product)
+        uniqueProducts.push(product)
+      } else {
+        removedCount++
+      }
+    })
+
+    if (removedCount > 0) {
+      setProducts(uniqueProducts)
+      
+      // Re-check data quality
+      const issues = checkDataQuality(uniqueProducts)
+      setDataQualityIssues(issues)
+      
+      // Download updated CSV
+      const csv = Papa.unparse(uniqueProducts)
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'main_cleaned.csv'
+      link.click()
+      window.URL.revokeObjectURL(url)
+      
+      alert(`Removed ${removedCount} complete duplicate(s). Updated CSV downloaded as 'main_cleaned.csv'`)
+    } else {
+      alert('No complete duplicates found!')
+    }
+  }, [products])
+
+  // Function to detect complete duplicates
+  const detectCompleteDuplicates = useCallback((productsData: Product[]): number => {
+    const seen = new Set<string>()
+    let duplicateCount = 0
+
+    productsData.forEach(product => {
+      const productHash = JSON.stringify({
+        title: product.title,
+        slug: product.slug,
+        image: product.image,
+        image_alt: product.image_alt,
+        gender: product.gender,
+        price_15ml: product.price_15ml,
+        price_30ml: product.price_30ml,
+        price_50ml: product.price_50ml,
+        brand: product.brand,
+        top_notes: product.top_notes,
+        heart_notes: product.heart_notes,
+        base_notes: product.base_notes,
+        link: product.link,
+        stock_status: product.stock_status
+      })
+
+      if (seen.has(productHash)) {
+        duplicateCount++
+      } else {
+        seen.add(productHash)
+      }
+    })
+
+    return duplicateCount
+  }, [])
 
   // Function to check data quality issues
   const checkDataQuality = (productsData: Product[]): Map<string, string[]> => {
@@ -282,15 +371,14 @@ function App() {
         productIssues.push('no-image')
       }
 
-      // Check for missing description/notes
-      if (!product.top_notes || product.top_notes.trim() === '') {
-        productIssues.push('no-top-notes')
-      }
-      if (!product.heart_notes || product.heart_notes.trim() === '') {
-        productIssues.push('no-heart-notes')
-      }
-      if (!product.base_notes || product.base_notes.trim() === '') {
-        productIssues.push('no-base-notes')
+      // Smart notes validation - only flag if ALL notes are missing
+      // Notes can legitimately be the same or selectively empty
+      const hasTopNotes = product.top_notes && product.top_notes.trim() !== ''
+      const hasHeartNotes = product.heart_notes && product.heart_notes.trim() !== ''
+      const hasBaseNotes = product.base_notes && product.base_notes.trim() !== ''
+      
+      if (!hasTopNotes && !hasHeartNotes && !hasBaseNotes) {
+        productIssues.push('no-notes')
       }
 
       // Check for missing brand
@@ -298,14 +386,23 @@ function App() {
         productIssues.push('no-brand')
       }
 
-      // Check for missing link
-      if (!product.link || product.link.trim() === '') {
-        productIssues.push('no-link')
-      }
-
-      // Check for empty slug
+      // Only flag missing slug (critical for routing)
       if (!product.slug || product.slug.trim() === '') {
         productIssues.push('no-slug')
+      }
+
+      // Check for missing title (critical field)
+      if (!product.title || product.title.trim() === '') {
+        productIssues.push('no-title')
+      }
+
+      // Check if at least ONE price is set (product must have some price)
+      const hasAnyPrice = !isInvalidPrice(product.price_15ml) || 
+                          !isInvalidPrice(product.price_30ml) || 
+                          !isInvalidPrice(product.price_50ml)
+      
+      if (!hasAnyPrice) {
+        productIssues.push('no-prices')
       }
 
       if (productIssues.length > 0) {
@@ -405,6 +502,10 @@ function App() {
         // Check data quality issues
         const issues = checkDataQuality(productsData)
         setDataQualityIssues(issues)
+        
+        // Detect complete duplicates
+        const completeDups = detectCompleteDuplicates(productsData)
+        setCompleteDuplicates(completeDups)
         
         // Small delay for smooth transition
         setTimeout(() => {
@@ -739,14 +840,24 @@ function App() {
       </div>
 
       <div className="table-container">
-        {dataQualityIssues.size > 0 && (
+        {(dataQualityIssues.size > 0 || completeDuplicates > 0) && (
           <div className="quality-summary">
             <strong>⚠️ Data Quality Issues:</strong>
             <span>
               {duplicateFilter 
                 ? `Showing duplicates for: ${duplicateFilter}` 
                 : `${dataQualityIssues.size} products need attention`}
+              {completeDuplicates > 0 && ` | ${completeDuplicates} exact duplicate(s) found`}
             </span>
+            {completeDuplicates > 0 && (
+              <button
+                className="quality-filter-btn danger"
+                onClick={removeCompleteDuplicates}
+                title="Remove items that are 100% identical (all fields match)"
+              >
+                🗑️ Delete {completeDuplicates} Duplicate{completeDuplicates > 1 ? 's' : ''}
+              </button>
+            )}
             {duplicateFilter && (
               <button
                 className="quality-filter-btn"
