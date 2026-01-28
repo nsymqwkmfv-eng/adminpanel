@@ -44,8 +44,7 @@ const TableRow = memo(({
   // Helper to get tag label and color with short abbreviations
   const getIssueTag = (issue: string) => {
     const tagMap: Record<string, { label: string; short: string; color: string }> = {
-      'duplicate-slug': { label: 'Duplicate Slug - Click to see all', short: '🔄 DUP', color: '#ef4444' },
-      'duplicate-title': { label: 'Duplicate Title - Click to see all', short: '🔄 DUP', color: '#f97316' },
+      'duplicate': { label: 'Duplicate (slug or title) - Click to see all', short: '🔄 DUP', color: '#ef4444' },
       'no-price-15ml': { label: 'Missing 15ml Price', short: '⚠️ 15ml', color: '#eab308' },
       'no-price-30ml': { label: 'Missing 30ml Price', short: '⚠️ 30ml', color: '#eab308' },
       'no-price-50ml': { label: 'Missing 50ml Price', short: '⚠️ 50ml', color: '#eab308' },
@@ -80,7 +79,7 @@ const TableRow = memo(({
             <div className="quality-tags-inline">
               {issues.map((issue) => {
                 const tag = getIssueTag(issue)
-                const isDuplicate = issue === 'duplicate-slug' || issue === 'duplicate-title'
+                const isDuplicate = issue === 'duplicate'
                 return (
                   <span
                     key={issue}
@@ -90,11 +89,8 @@ const TableRow = memo(({
                     onClick={(e) => {
                       if (isDuplicate && onDuplicateClick) {
                         e.stopPropagation()
-                        if (issue === 'duplicate-slug') {
-                          onDuplicateClick('slug', product.slug)
-                        } else if (issue === 'duplicate-title') {
-                          onDuplicateClick('title', product.title)
-                        }
+                        // Use slug for filtering if available, otherwise use title
+                        onDuplicateClick('slug', product.slug || product.title)
                       }
                     }}
                   >
@@ -339,14 +335,12 @@ function App() {
     productsData.forEach(product => {
       const productIssues: string[] = []
 
-      // Check for duplicate slug
-      if ((slugCounts.get(product.slug?.toLowerCase() || '') || 0) > 1) {
-        productIssues.push('duplicate-slug')
-      }
-
-      // Check for duplicate title
-      if ((titleCounts.get(product.title?.toLowerCase() || '') || 0) > 1) {
-        productIssues.push('duplicate-title')
+      // Check for duplicates (slug or title) - combine into one tag
+      const hasDuplicateSlug = (slugCounts.get(product.slug?.toLowerCase() || '') || 0) > 1
+      const hasDuplicateTitle = (titleCounts.get(product.title?.toLowerCase() || '') || 0) > 1
+      
+      if (hasDuplicateSlug || hasDuplicateTitle) {
+        productIssues.push('duplicate')
       }
 
       // Check for missing or invalid prices (empty, '-', '0', or whitespace)
