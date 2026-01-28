@@ -37,23 +37,23 @@ const TableRow = memo(({
   onClick: (product: Product) => void
   issues?: string[]
 }) => {
-  // Helper to get tag label and color
+  // Helper to get tag label and color with short abbreviations
   const getIssueTag = (issue: string) => {
-    const tagMap: Record<string, { label: string; color: string }> = {
-      'duplicate-slug': { label: 'Duplicate Slug', color: '#ef4444' },
-      'duplicate-title': { label: 'Duplicate Title', color: '#f97316' },
-      'no-price-15ml': { label: 'No 15ml Price', color: '#eab308' },
-      'no-price-30ml': { label: 'No 30ml Price', color: '#eab308' },
-      'no-price-50ml': { label: 'No 50ml Price', color: '#eab308' },
-      'no-image': { label: 'No Image', color: '#ec4899' },
-      'no-top-notes': { label: 'No Top Notes', color: '#a78bfa' },
-      'no-heart-notes': { label: 'No Heart Notes', color: '#a78bfa' },
-      'no-base-notes': { label: 'No Base Notes', color: '#a78bfa' },
-      'no-brand': { label: 'No Brand', color: '#06b6d4' },
-      'no-link': { label: 'No Link', color: '#3b82f6' },
-      'no-slug': { label: 'No Slug', color: '#ef4444' }
+    const tagMap: Record<string, { label: string; short: string; color: string }> = {
+      'duplicate-slug': { label: 'Duplicate Slug', short: 'DUP-SLUG', color: '#ef4444' },
+      'duplicate-title': { label: 'Duplicate Title', short: 'DUP-TITLE', color: '#f97316' },
+      'no-price-15ml': { label: 'Missing 15ml Price', short: '15ML', color: '#eab308' },
+      'no-price-30ml': { label: 'Missing 30ml Price', short: '30ML', color: '#eab308' },
+      'no-price-50ml': { label: 'Missing 50ml Price', short: '50ML', color: '#eab308' },
+      'no-image': { label: 'Missing Image', short: 'IMG', color: '#ec4899' },
+      'no-top-notes': { label: 'Missing Top Notes', short: 'TOP', color: '#a78bfa' },
+      'no-heart-notes': { label: 'Missing Heart Notes', short: 'HEART', color: '#a78bfa' },
+      'no-base-notes': { label: 'Missing Base Notes', short: 'BASE', color: '#a78bfa' },
+      'no-brand': { label: 'Missing Brand', short: 'BRAND', color: '#06b6d4' },
+      'no-link': { label: 'Missing Link', short: 'LINK', color: '#3b82f6' },
+      'no-slug': { label: 'Missing Slug', short: 'SLUG', color: '#ef4444' }
     }
-    return tagMap[issue] || { label: issue, color: '#6b7280' }
+    return tagMap[issue] || { label: issue, short: issue.toUpperCase(), color: '#6b7280' }
   }
 
   // Images are preloaded, so we can use them directly
@@ -80,7 +80,7 @@ const TableRow = memo(({
                     title={tag.label}
                     style={{ backgroundColor: tag.color + '20', color: tag.color, borderColor: tag.color }}
                   >
-                    {tag.label.split(' ')[0]}
+                    {tag.short}
                   </span>
                 )
               })}

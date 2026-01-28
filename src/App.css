@@ -236,6 +236,8 @@ img {
   padding: 20px 30px;
   contain: layout style;
   overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table-container::-webkit-scrollbar {
@@ -2164,6 +2166,8 @@ select.input-field option {
     flex-direction: column;
     gap: 12px;
     padding: 12px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Table Container - Convert to Card View */
