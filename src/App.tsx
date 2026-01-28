@@ -36,7 +36,7 @@ const TableRow = memo(({
 }: { 
   product: Product
   index: number
-  onClick: (product: Product) => void
+  onClick: (product: Product, index: number) => void
   issues?: string[]
   duplicateColor?: string
   onDuplicateClick?: (type: 'slug' | 'title', value: string) => void
@@ -61,7 +61,7 @@ const TableRow = memo(({
   // Images are preloaded, so we can use them directly
   return (
     <tr 
-      onClick={() => onClick(product)}
+      onClick={() => onClick(product, index)}
       className="table-row"
       data-has-issues={issues.length > 0 ? 'true' : 'false'}
       style={duplicateColor ? {
@@ -171,6 +171,7 @@ function App() {
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1)
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearchTerm = useDebounce(searchTerm, 150)
   const [isDarkMode, setIsDarkMode] = useState(true)
@@ -736,39 +737,52 @@ function App() {
       setPendingAction(() => () => {
         setShowDetailPanel(false)
         setSelectedProduct(null)
+        setSelectedProductIndex(-1)
         setEditedProduct(null)
       })
       setShowConfirmModal(true)
     } else {
       setShowDetailPanel(false)
       setSelectedProduct(null)
+      setSelectedProductIndex(-1)
       setEditedProduct(null)
     }
   }, [hasUnsavedChanges])
 
-  const handleProductClick = useCallback((product: Product) => {
+  const handleProductClick = useCallback((product: Product, productIndex: number) => {
     if (hasUnsavedChanges) {
       setPendingAction(() => () => {
         setSelectedProduct(product)
+        setSelectedProductIndex(productIndex)
         setEditedProduct(null)
         setShowDetailPanel(true)
       })
       setShowConfirmModal(true)
     } else {
       setSelectedProduct(product)
+      setSelectedProductIndex(productIndex)
       setEditedProduct(null)
       setShowDetailPanel(true)
     }
   }, [hasUnsavedChanges])
 
-  const handleDeleteProduct = useCallback((product: Product, e: React.MouseEvent) => {
+  const handleDeleteProduct = useCallback((productIndex: number, e: React.MouseEvent) => {
     e.stopPropagation()
+    const product = products[productIndex]
     if (window.confirm(`Are you sure you want to delete ${product.title}?`)) {
-      const updatedProducts = products.filter(p => p.slug !== product.slug)
+      const updatedProducts = products.filter((_, index) => index !== productIndex)
       setProducts(updatedProducts)
       
-      if (selectedProduct?.slug === product.slug) {
-        setSelectedProduct(updatedProducts[0] || null)
+      // Re-check data quality after deletion
+      const issues = checkDataQuality(updatedProducts)
+      setDataQualityIssues(issues)
+      
+      // Detect complete duplicates
+      const completeDups = detectCompleteDuplicates(updatedProducts)
+      setCompleteDuplicates(completeDups)
+      
+      if (selectedProduct === product) {
+        setSelectedProduct(null)
         setShowDetailPanel(false)
       }
     }
@@ -1152,7 +1166,7 @@ function App() {
                     <div className="form-actions">
                       <button
                         className="delete-btn-full"
-                        onClick={(e) => handleDeleteProduct(currentProduct, e)}
+                        onClick={(e) => handleDeleteProduct(selectedProductIndex, e)}
                       >
                         <Trash size={18} weight="bold" />
                         Məhsulu Sil
