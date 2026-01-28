@@ -44,16 +44,16 @@ const TableRow = memo(({
   // Helper to get tag label and color with short abbreviations
   const getIssueTag = (issue: string) => {
     const tagMap: Record<string, { label: string; short: string; color: string }> = {
-      'duplicate': { label: 'Duplicate (slug or title) - Click to see all', short: '🔄 DUP', color: '#ef4444' },
-      'no-price-15ml': { label: 'Missing 15ml Price', short: '⚠️ 15ml', color: '#eab308' },
-      'no-price-30ml': { label: 'Missing 30ml Price', short: '⚠️ 30ml', color: '#eab308' },
-      'no-price-50ml': { label: 'Missing 50ml Price', short: '⚠️ 50ml', color: '#eab308' },
-      'no-prices': { label: 'No Prices Set (needs at least one)', short: '💰 PRICE', color: '#dc2626' },
-      'no-image': { label: 'Missing Image', short: '📷 IMG', color: '#ec4899' },
-      'no-notes': { label: 'No Notes at all (top/heart/base all empty)', short: '📝 NOTES', color: '#a78bfa' },
-      'no-brand': { label: 'Missing Brand', short: '🏷️ BRAND', color: '#06b6d4' },
-      'no-slug': { label: 'Missing Slug (Critical!)', short: '❌ SLUG', color: '#dc2626' },
-      'no-title': { label: 'Missing Title (Critical!)', short: '❌ TITLE', color: '#dc2626' }
+      'duplicate': { label: 'Dublikat məhsul - hamısını görmək üçün klikləyin', short: '🔄 Dublikat', color: '#ef4444' },
+      'no-price-15ml': { label: '15ml qiyməti yoxdur', short: '⚠️ 15ml', color: '#eab308' },
+      'no-price-30ml': { label: '30ml qiyməti yoxdur', short: '⚠️ 30ml', color: '#eab308' },
+      'no-price-50ml': { label: '50ml qiyməti yoxdur', short: '⚠️ 50ml', color: '#eab308' },
+      'no-prices': { label: 'Heç bir qiymət yoxdur', short: '💰 Qiymət Yox', color: '#dc2626' },
+      'no-image': { label: 'Şəkil yoxdur', short: '📷 Şəkil Yox', color: '#ec4899' },
+      'no-notes': { label: 'Heç bir not yoxdur (üst/ürək/baza boşdur)', short: '📝 Not Yox', color: '#a78bfa' },
+      'no-brand': { label: 'Brend adı yoxdur', short: '🏷️ Brend Yox', color: '#06b6d4' },
+      'no-slug': { label: 'Slug yoxdur (Vacib!)', short: '❌ Slug Yox', color: '#dc2626' },
+      'no-title': { label: 'Məhsul adı yoxdur (Vacib!)', short: '❌ Ad Yox', color: '#dc2626' }
     }
     return tagMap[issue] || { label: issue, short: issue.toUpperCase(), color: '#6b7280' }
   }
