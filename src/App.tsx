@@ -36,7 +36,7 @@ const TableRow = memo(({
 }: { 
   product: Product
   index: number
-  onClick: (product: Product) => void
+  onClick: (product: Product, index: number) => void
   issues?: string[]
   duplicateColor?: string
   onDuplicateClick?: (type: 'slug' | 'title', value: string) => void
@@ -61,7 +61,7 @@ const TableRow = memo(({
   // Images are preloaded, so we can use them directly
   return (
     <tr 
-      onClick={() => onClick(product)}
+      onClick={() => onClick(product, index)}
       className="table-row"
       data-has-issues={issues.length > 0 ? 'true' : 'false'}
       style={duplicateColor ? {
@@ -190,7 +190,7 @@ function App() {
   const [noteSelectorSearch, setNoteSelectorSearch] = useState('')
   const debouncedNoteSelectorSearch = useDebounce(noteSelectorSearch, 150)
   const [editedProduct, setEditedProduct] = useState<Product | null>(null)
-  const [originalSlug, setOriginalSlug] = useState<string>('')
+  const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
@@ -749,39 +749,33 @@ function App() {
   }, [cropImage, croppedAreaPixels, selectedProduct, handleProductUpdate])
 
   const handleSaveChanges = useCallback(() => {
-    if (editedProduct && selectedProduct) {
-      // Use originalSlug to find the product, in case slug was edited
-      const slugToMatch = originalSlug || selectedProduct.slug
-      const updatedProducts = products.map(p =>
-        p.slug === slugToMatch ? editedProduct : p
-      )
+    if (editedProduct && selectedProduct && selectedProductIndex >= 0) {
+      // Use array index to update the exact product (handles duplicates correctly)
+      const updatedProducts = [...products]
+      updatedProducts[selectedProductIndex] = editedProduct
       
       // Update UI immediately
       setProducts(updatedProducts)
       setSelectedProduct(editedProduct)
       setEditedProduct(null)
-      setOriginalSlug('')
       setHasUnsavedChanges(false)
       
-      // Defer expensive operations to avoid blocking UI
-      setTimeout(() => {
-        // Save to localStorage
-        localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
-        
-        // Re-check data quality
+      // Save to localStorage immediately (not deferred to ensure data consistency)
+      localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
+      
+      // Defer only the quality checks to avoid blocking UI
+      requestAnimationFrame(() => {
         const issues = checkDataQuality(updatedProducts)
         setDataQualityIssues(issues)
         
-        // Detect complete duplicates
         const completeDups = detectCompleteDuplicates(updatedProducts)
         setCompleteDuplicates(completeDups)
-      }, 0)
+      })
     }
-  }, [editedProduct, selectedProduct, products, originalSlug])
+  }, [editedProduct, selectedProduct, selectedProductIndex, products])
 
   const handleDiscardChanges = useCallback(() => {
     setEditedProduct(null)
-    setOriginalSlug('')
     setHasUnsavedChanges(false)
     setShowConfirmModal(false)
     if (pendingAction) {
@@ -796,29 +790,29 @@ function App() {
         setShowDetailPanel(false)
         setSelectedProduct(null)
         setEditedProduct(null)
-        setOriginalSlug('')
+        setSelectedProductIndex(-1)
       })
       setShowConfirmModal(true)
     } else {
       setShowDetailPanel(false)
       setSelectedProduct(null)
       setEditedProduct(null)
-      setOriginalSlug('')
+      setSelectedProductIndex(-1)
     }
   }, [hasUnsavedChanges])
 
-  const handleProductClick = useCallback((product: Product) => {
+  const handleProductClick = useCallback((product: Product, index: number) => {
     if (hasUnsavedChanges) {
       setPendingAction(() => () => {
         setSelectedProduct(product)
-        setOriginalSlug(product.slug)
+        setSelectedProductIndex(index)
         setEditedProduct(null)
         setShowDetailPanel(true)
       })
       setShowConfirmModal(true)
     } else {
       setSelectedProduct(product)
-      setOriginalSlug(product.slug)
+      setSelectedProductIndex(index)
       setEditedProduct(null)
       setShowDetailPanel(true)
     }
