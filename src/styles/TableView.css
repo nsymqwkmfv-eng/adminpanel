@@ -1,0 +1,174 @@
+.table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.csv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.csv-table thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.csv-table th {
+  color: white;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  position: relative;
+}
+
+.header-cell {
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.btn-delete-col {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.header-cell:hover .btn-delete-col {
+  opacity: 1;
+}
+
+.btn-delete-col:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.csv-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.2s ease;
+}
+
+.csv-table tbody tr:hover {
+  background-color: #f7fafc;
+}
+
+.csv-table tbody tr.selected {
+  background-color: #e6fffa;
+}
+
+.checkbox-col {
+  width: 40px;
+  padding: 8px 12px !important;
+  text-align: center;
+}
+
+.checkbox-col input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: #667eea;
+}
+
+.data-cell {
+  padding: 8px 12px;
+  max-width: 300px;
+  position: relative;
+}
+
+.cell-content {
+  display: block;
+  word-break: break-word;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.data-cell input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 2px solid #667eea;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+  box-shadow: 0 0 8px rgba(102, 126, 234, 0.2);
+}
+
+.data-cell input:focus {
+  outline: none;
+  border-color: #764ba2;
+}
+
+.action-col {
+  width: 120px;
+  padding: 8px 12px !important;
+  text-align: center;
+}
+
+.btn-delete-row {
+  background: #fc8181;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-row:hover {
+  background: #f56565;
+  transform: scale(1.05);
+}
+
+.empty-message {
+  text-align: center;
+  color: #a0aec0;
+  padding: 40px;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .csv-table {
+    font-size: 12px;
+  }
+
+  .csv-table th,
+  .csv-table td {
+    padding: 8px;
+  }
+
+  .header-content {
+    gap: 4px;
+  }
+
+  .btn-delete-col {
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+  }
+
+  .data-cell {
+    max-width: 150px;
+  }
+}

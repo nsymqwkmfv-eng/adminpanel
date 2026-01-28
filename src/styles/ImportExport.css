@@ -1,0 +1,16 @@
+.import-export {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .import-export {
+    width: 100%;
+  }
+
+  .import-export .btn {
+    flex: 1;
+    min-width: 120px;
+  }
+}
