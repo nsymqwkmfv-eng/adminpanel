@@ -853,39 +853,34 @@ function App() {
     }
   }, [hasUnsavedChanges])
 
-  const handleDeleteProduct = useCallback((product: Product, e: React.MouseEvent) => {
+  const handleDeleteProduct = useCallback((indexToDelete: number, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (window.confirm(`Are you sure you want to delete ${product.title}?`)) {
-      // Find the exact index of this product instance (not by slug, by reference)
-      const indexToDelete = products.findIndex((p, idx) => 
-        p === product || (p.slug === product.slug && idx === selectedProductIndex)
-      )
-      
-      if (indexToDelete === -1) return
-      
-      // Use index to delete the SPECIFIC item, not all with same slug
-      const updatedProducts = products.filter((_, idx) => idx !== indexToDelete)
-      setProducts(updatedProducts)
-      
-      // Save to localStorage
+    const productToDelete = products[indexToDelete]
+    if (!productToDelete) return
+
+    if (!window.confirm(`Are you sure you want to delete ${productToDelete.title}?`)) return
+
+    // Delete by exact index only
+    const updatedProducts = products.filter((_, idx) => idx !== indexToDelete)
+    setProducts(updatedProducts)
+
+    // Close panel if you deleted the selected one
+    if (indexToDelete === selectedProductIndex) {
+      setSelectedProduct(null)
+      setSelectedProductIndex(-1)
+      setEditedProduct(null)
+      setShowDetailPanel(false)
+    }
+
+    // Defer heavy work to avoid blocking UI
+    setTimeout(() => {
       localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
-      
-      // Re-check data quality after deletion
       const issues = checkDataQuality(updatedProducts)
       setDataQualityIssues(issues)
-      
-      // Detect complete duplicates
       const completeDups = detectCompleteDuplicates(updatedProducts)
       setCompleteDuplicates(completeDups)
-      
-      // Close detail panel if this was the selected product
-      if (indexToDelete === selectedProductIndex) {
-        setSelectedProduct(updatedProducts[0] || null)
-        setSelectedProductIndex(-1)
-        setShowDetailPanel(false)
-      }
-    }
-  }, [products, selectedProduct, selectedProductIndex])
+    }, 0)
+  }, [products, selectedProductIndex, detectCompleteDuplicates])
 
   const handleExportCSV = useCallback(() => {
     const csv = Papa.unparse(products)
@@ -1064,7 +1059,7 @@ function App() {
               
               return (
                 <TableRow
-                  key={`${product.slug}-${originalIndex}`}
+                  key={originalIndex}
                   product={product}
                   index={originalIndex}
                   displayIndex={filteredIndex}
@@ -1327,7 +1322,7 @@ function App() {
                     <div className="form-actions">
                       <button
                         className="delete-btn-full"
-                        onClick={(e) => handleDeleteProduct(currentProduct, e)}
+                        onClick={(e) => handleDeleteProduct(selectedProductIndex, e)}
                       >
                         <Trash size={18} weight="bold" />
                         Məhsulu Sil
