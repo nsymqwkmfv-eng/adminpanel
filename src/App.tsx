@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import Papa from 'papaparse'
 import Cropper from 'react-easy-crop'
-import { Trash, Moon, Sun, Upload, Plus, MagnifyingGlass, X } from 'phosphor-react'
+import { Trash, Moon, Sun, Upload, Plus, MagnifyingGlass, X, Download } from 'phosphor-react'
 import 'react-easy-crop/react-easy-crop.css'
 import './App.css'
 
@@ -36,7 +36,7 @@ const TableRow = memo(({
 }: { 
   product: Product
   index: number
-  onClick: (product: Product, index: number) => void
+  onClick: (product: Product) => void
   issues?: string[]
   duplicateColor?: string
   onDuplicateClick?: (type: 'slug' | 'title', value: string) => void
@@ -61,7 +61,7 @@ const TableRow = memo(({
   // Images are preloaded, so we can use them directly
   return (
     <tr 
-      onClick={() => onClick(product, index)}
+      onClick={() => onClick(product)}
       className="table-row"
       data-has-issues={issues.length > 0 ? 'true' : 'false'}
       style={duplicateColor ? {
@@ -89,7 +89,6 @@ const TableRow = memo(({
                     onClick={(e) => {
                       if (isDuplicate && onDuplicateClick) {
                         e.stopPropagation()
-                        // Use slug for filtering if available, otherwise use title
                         onDuplicateClick('slug', product.slug || product.title)
                       }
                     }}
@@ -108,7 +107,6 @@ const TableRow = memo(({
           src={product.image} 
           alt={product.title} 
           className="table-image"
-          loading="lazy"
         />
       </td>
       <td data-label="Image Alt" className="table-cell slug-cell">{product.image_alt}</td>
@@ -133,10 +131,10 @@ const TableRow = memo(({
     </tr>
   )
 }, (prevProps, nextProps) => {
-  // Optimized comparison - avoid expensive JSON.stringify
-  return prevProps.product === nextProps.product &&
+  // Only re-render if product data changed, not on parent renders
+  return prevProps.product.slug === nextProps.product.slug &&
          prevProps.index === nextProps.index &&
-         prevProps.issues?.length === nextProps.issues?.length &&
+         JSON.stringify(prevProps.issues) === JSON.stringify(nextProps.issues) &&
          prevProps.duplicateColor === nextProps.duplicateColor
 })
 
@@ -172,7 +170,6 @@ function App() {
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [selectedProductIndex, setSelectedProductIndex] = useState<number>(-1)
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearchTerm = useDebounce(searchTerm, 150)
   const [isDarkMode, setIsDarkMode] = useState(true)
@@ -239,9 +236,16 @@ function App() {
     if (removedCount > 0) {
       setProducts(uniqueProducts)
       
+      // Save to localStorage
+      localStorage.setItem('perfume_products', JSON.stringify(uniqueProducts))
+      
       // Re-check data quality
       const issues = checkDataQuality(uniqueProducts)
       setDataQualityIssues(issues)
+      
+      // Detect complete duplicates
+      const completeDups = detectCompleteDuplicates(uniqueProducts)
+      setCompleteDuplicates(completeDups)
       
       // Download updated CSV
       const csv = Papa.unparse(uniqueProducts)
@@ -409,21 +413,31 @@ function App() {
       try {
         // Load CSVs
         setLoadingProgress(10)
-        const [mainResponse, notesResponse] = await Promise.all([
-          fetch('/main.csv').then(r => r.text()),
-          fetch('/Notes.csv').then(r => r.text())
-        ])
-
-        setLoadingProgress(30)
-
-        // Parse CSVs
-        const productsData = await new Promise<Product[]>((resolve) => {
-          Papa.parse(mainResponse, {
-            header: true,
-            complete: (results) => resolve(results.data as Product[])
+        
+        // Check localStorage first
+        const savedProducts = localStorage.getItem('perfume_products')
+        let productsData: Product[]
+        
+        if (savedProducts) {
+          // Use saved data from localStorage
+          productsData = JSON.parse(savedProducts)
+          setLoadingProgress(30)
+        } else {
+          // Load from CSV if no saved data
+          const mainResponse = await fetch('/main.csv').then(r => r.text())
+          setLoadingProgress(20)
+          
+          productsData = await new Promise<Product[]>((resolve) => {
+            Papa.parse(mainResponse, {
+              header: true,
+              complete: (results) => resolve(results.data as Product[])
+            })
           })
-        })
-
+          setLoadingProgress(30)
+        }
+        
+        // Always load notes from CSV
+        const notesResponse = await fetch('/Notes.csv').then(r => r.text())
         const notesData = await new Promise<Note[]>((resolve) => {
           Papa.parse(notesResponse, {
             header: true,
@@ -508,63 +522,86 @@ function App() {
   }, [])
 
   const filteredProducts = useMemo(() => {
-    const searchLower = debouncedSearchTerm.toLowerCase()
-    const hasSearch = searchLower.length > 0
-    
-    // Fast path: no filters
-    if (!hasSearch && !showQualityFilter) {
-      return products
-    }
-    
-    // Filter by search term
-    let filtered = hasSearch 
-      ? products.filter(product => {
-          const title = product.title?.toLowerCase() || ''
-          const brand = product.brand?.toLowerCase() || ''
-          const slug = product.slug?.toLowerCase() || ''
-          return title.includes(searchLower) || brand.includes(searchLower) || slug.includes(searchLower)
-        })
-      : products
+    let filtered = products.filter(product =>
+      product.title?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      product.brand?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      product.slug?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+    )
     
     // Filter by quality issues if filter is active
     if (showQualityFilter) {
       if (duplicateFilter) {
+        // Find all products that share the same slug OR title as the clicked product
         const dupLower = duplicateFilter.toLowerCase()
-        filtered = filtered.filter(product =>
+        
+        // First, find all products that match the filter (by slug or title)
+        const matchingProducts = filtered.filter(product =>
           product.slug?.toLowerCase() === dupLower ||
           product.title?.toLowerCase() === dupLower
         )
+        
+        // Then, find ALL products that share the same slug or title as any matching product
+        const duplicateSet = new Set<string>()
+        matchingProducts.forEach(p => {
+          const slug = p.slug?.toLowerCase()
+          const title = p.title?.toLowerCase()
+          filtered.forEach(f => {
+            if ((slug && f.slug?.toLowerCase() === slug) || 
+                (title && f.title?.toLowerCase() === title)) {
+              duplicateSet.add(f.slug || f.title || '')
+            }
+          })
+        })
+        
+        // Filter to show only products in the duplicate group
+        filtered = filtered.filter(product =>
+          duplicateSet.has(product.slug || product.title || '')
+        )
       } else {
+        // Show all items with any quality issues
         filtered = filtered.filter(product =>
           dataQualityIssues.has(product.slug || product.title || '')
         )
       }
     }
     
-    return filtered
-  }, [products, debouncedSearchTerm, showQualityFilter, dataQualityIssues, duplicateFilter])
-
-  // Sort duplicates together only when needed (optimized separately)
-  const sortedProducts = useMemo(() => {
-    if (!showQualityFilter && !duplicateFilter) {
-      return filteredProducts
-    }
-    
-    // Create a copy to sort
-    const sorted = [...filteredProducts]
-    
-    // Group duplicates together
-    sorted.sort((a, b) => {
+    // Sort to group duplicates together
+    filtered.sort((a, b) => {
       const aSlug = a.slug?.toLowerCase() || ''
       const bSlug = b.slug?.toLowerCase() || ''
+      const aTitle = a.title?.toLowerCase() || ''
+      const bTitle = b.title?.toLowerCase() || ''
       
-      if (aSlug === bSlug && aSlug) return 0
-      if (aSlug < bSlug) return -1
-      return 1
+      // Count duplicates
+      const aSlugDup = filtered.filter(p => p.slug?.toLowerCase() === aSlug).length > 1
+      const bSlugDup = filtered.filter(p => p.slug?.toLowerCase() === bSlug).length > 1
+      const aTitleDup = filtered.filter(p => p.title?.toLowerCase() === aTitle).length > 1
+      const bTitleDup = filtered.filter(p => p.title?.toLowerCase() === bTitle).length > 1
+      
+      const aHasDup = aSlugDup || aTitleDup
+      const bHasDup = bSlugDup || bTitleDup
+      
+      // Duplicates first
+      if (aHasDup && !bHasDup) return -1
+      if (!aHasDup && bHasDup) return 1
+      
+      // Group by slug if both have slug duplicates
+      if (aSlugDup && bSlugDup) {
+        if (aSlug === bSlug) return 0
+        return aSlug.localeCompare(bSlug)
+      }
+      
+      // Group by title if both have title duplicates
+      if (aTitleDup && bTitleDup) {
+        if (aTitle === bTitle) return 0
+        return aTitle.localeCompare(bTitle)
+      }
+      
+      return 0
     })
     
-    return sorted
-  }, [filteredProducts, showQualityFilter, duplicateFilter])
+    return filtered
+  }, [products, debouncedSearchTerm, showQualityFilter, dataQualityIssues, duplicateFilter])
 
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term)
@@ -712,16 +749,31 @@ function App() {
 
   const handleSaveChanges = useCallback(() => {
     if (editedProduct && selectedProduct) {
-      setProducts(prevProducts =>
-        prevProducts.map(p =>
-          p.slug === selectedProduct.slug ? editedProduct : p
-        )
+      const updatedProducts = products.map(p =>
+        p.slug === selectedProduct.slug ? editedProduct : p
       )
+      
+      // Update UI immediately
+      setProducts(updatedProducts)
       setSelectedProduct(editedProduct)
       setEditedProduct(null)
       setHasUnsavedChanges(false)
+      
+      // Defer expensive operations to avoid blocking UI
+      setTimeout(() => {
+        // Save to localStorage
+        localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
+        
+        // Re-check data quality
+        const issues = checkDataQuality(updatedProducts)
+        setDataQualityIssues(issues)
+        
+        // Detect complete duplicates
+        const completeDups = detectCompleteDuplicates(updatedProducts)
+        setCompleteDuplicates(completeDups)
+      }, 0)
     }
-  }, [editedProduct, selectedProduct])
+  }, [editedProduct, selectedProduct, products])
 
   const handleDiscardChanges = useCallback(() => {
     setEditedProduct(null)
@@ -738,41 +790,39 @@ function App() {
       setPendingAction(() => () => {
         setShowDetailPanel(false)
         setSelectedProduct(null)
-        setSelectedProductIndex(-1)
         setEditedProduct(null)
       })
       setShowConfirmModal(true)
     } else {
       setShowDetailPanel(false)
       setSelectedProduct(null)
-      setSelectedProductIndex(-1)
       setEditedProduct(null)
     }
   }, [hasUnsavedChanges])
 
-  const handleProductClick = useCallback((product: Product, productIndex: number) => {
+  const handleProductClick = useCallback((product: Product) => {
     if (hasUnsavedChanges) {
       setPendingAction(() => () => {
         setSelectedProduct(product)
-        setSelectedProductIndex(productIndex)
         setEditedProduct(null)
         setShowDetailPanel(true)
       })
       setShowConfirmModal(true)
     } else {
       setSelectedProduct(product)
-      setSelectedProductIndex(productIndex)
       setEditedProduct(null)
       setShowDetailPanel(true)
     }
   }, [hasUnsavedChanges])
 
-  const handleDeleteProduct = useCallback((productIndex: number, e: React.MouseEvent) => {
+  const handleDeleteProduct = useCallback((product: Product, e: React.MouseEvent) => {
     e.stopPropagation()
-    const product = products[productIndex]
     if (window.confirm(`Are you sure you want to delete ${product.title}?`)) {
-      const updatedProducts = products.filter((_, index) => index !== productIndex)
+      const updatedProducts = products.filter(p => p.slug !== product.slug)
       setProducts(updatedProducts)
+      
+      // Save to localStorage
+      localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
       
       // Re-check data quality after deletion
       const issues = checkDataQuality(updatedProducts)
@@ -782,12 +832,58 @@ function App() {
       const completeDups = detectCompleteDuplicates(updatedProducts)
       setCompleteDuplicates(completeDups)
       
-      if (selectedProduct === product) {
-        setSelectedProduct(null)
+      if (selectedProduct?.slug === product.slug) {
+        setSelectedProduct(updatedProducts[0] || null)
         setShowDetailPanel(false)
       }
     }
   }, [products, selectedProduct])
+
+  const handleExportCSV = useCallback(() => {
+    const csv = Papa.unparse(products)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+    link.download = `main_${timestamp}.csv`
+    link.click()
+    window.URL.revokeObjectURL(url)
+    alert(`CSV yadda saxlanıldı: main_${timestamp}.csv`)
+  }, [products])
+
+  const handleResetData = useCallback(async () => {
+    if (window.confirm('Bu, bütün dəyişiklikləri silər və orijinal CSV-dən yükləyər. Davam etmək istəyirsiniz?')) {
+      try {
+        // Clear localStorage
+        localStorage.removeItem('perfume_products')
+        
+        // Reload from CSV
+        const mainResponse = await fetch('/main.csv').then(r => r.text())
+        const productsData = await new Promise<Product[]>((resolve) => {
+          Papa.parse(mainResponse, {
+            header: true,
+            complete: (results) => resolve(results.data as Product[])
+          })
+        })
+        
+        setProducts(productsData)
+        
+        // Re-check data quality
+        const issues = checkDataQuality(productsData)
+        setDataQualityIssues(issues)
+        
+        // Detect complete duplicates
+        const completeDups = detectCompleteDuplicates(productsData)
+        setCompleteDuplicates(completeDups)
+        
+        alert('Data orijinal CSV-dən yükləndi')
+      } catch (error) {
+        console.error('Error resetting data:', error)
+        alert('Xəta baş verdi')
+      }
+    }
+  }, [])
 
   if (isLoading) {
     return (
@@ -824,6 +920,21 @@ function App() {
           </div>
         </div>
         <div className="header-actions">
+          <button 
+            className="export-btn"
+            onClick={handleExportCSV}
+            title="Export CSV with all changes"
+          >
+            <Download size={20} weight="duotone" />
+            Export CSV
+          </button>
+          <button 
+            className="reset-btn"
+            onClick={handleResetData}
+            title="Reset to original CSV data"
+          >
+            🔄 Reset
+          </button>
           <button 
             className="theme-toggle"
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -897,7 +1008,7 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            {sortedProducts.map((product, index) => {
+            {filteredProducts.map((product, index) => {
               const duplicateGroups = (window as any).duplicateGroups as Map<string, string> || new Map()
               const slugColor = duplicateGroups.get(product.slug?.toLowerCase() || '')
               const titleColor = duplicateGroups.get(product.title?.toLowerCase() || '')
@@ -905,7 +1016,7 @@ function App() {
               
               return (
                 <TableRow
-                  key={product.slug}
+                  key={product.slug + '-' + index}
                   product={product}
                   index={index}
                   onClick={handleProductClick}
@@ -1167,7 +1278,7 @@ function App() {
                     <div className="form-actions">
                       <button
                         className="delete-btn-full"
-                        onClick={(e) => handleDeleteProduct(selectedProductIndex, e)}
+                        onClick={(e) => handleDeleteProduct(currentProduct, e)}
                       >
                         <Trash size={18} weight="bold" />
                         Məhsulu Sil
