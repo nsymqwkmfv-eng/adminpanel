@@ -350,16 +350,6 @@ function App() {
         return trimmed === '' || trimmed === '-' || trimmed === '0' || trimmed === 'N/A'
       }
 
-      if (isInvalidPrice(product.price_15ml)) {
-        productIssues.push('no-price-15ml')
-      }
-      if (isInvalidPrice(product.price_30ml)) {
-        productIssues.push('no-price-30ml')
-      }
-      if (isInvalidPrice(product.price_50ml)) {
-        productIssues.push('no-price-50ml')
-      }
-
       // Check for missing image
       if (!product.image || product.image.trim() === '') {
         productIssues.push('no-image')
@@ -516,65 +506,63 @@ function App() {
   }, [])
 
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter(product =>
-      product.title?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      product.brand?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      product.slug?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-    )
+    const searchLower = debouncedSearchTerm.toLowerCase()
+    const hasSearch = searchLower.length > 0
+    
+    // Fast path: no filters
+    if (!hasSearch && !showQualityFilter) {
+      return products
+    }
+    
+    // Filter by search term
+    let filtered = hasSearch 
+      ? products.filter(product => {
+          const title = product.title?.toLowerCase() || ''
+          const brand = product.brand?.toLowerCase() || ''
+          const slug = product.slug?.toLowerCase() || ''
+          return title.includes(searchLower) || brand.includes(searchLower) || slug.includes(searchLower)
+        })
+      : products
     
     // Filter by quality issues if filter is active
     if (showQualityFilter) {
       if (duplicateFilter) {
-        // Show only items matching the duplicate slug or title
+        const dupLower = duplicateFilter.toLowerCase()
         filtered = filtered.filter(product =>
-          product.slug?.toLowerCase() === duplicateFilter.toLowerCase() ||
-          product.title?.toLowerCase() === duplicateFilter.toLowerCase()
+          product.slug?.toLowerCase() === dupLower ||
+          product.title?.toLowerCase() === dupLower
         )
       } else {
-        // Show all items with any quality issues
         filtered = filtered.filter(product =>
           dataQualityIssues.has(product.slug || product.title || '')
         )
       }
     }
     
-    // Sort to group duplicates together
-    filtered.sort((a, b) => {
-      const aSlug = a.slug?.toLowerCase() || ''
-      const bSlug = b.slug?.toLowerCase() || ''
-      const aTitle = a.title?.toLowerCase() || ''
-      const bTitle = b.title?.toLowerCase() || ''
-      
-      // Count duplicates
-      const aSlugDup = filtered.filter(p => p.slug?.toLowerCase() === aSlug).length > 1
-      const bSlugDup = filtered.filter(p => p.slug?.toLowerCase() === bSlug).length > 1
-      const aTitleDup = filtered.filter(p => p.title?.toLowerCase() === aTitle).length > 1
-      const bTitleDup = filtered.filter(p => p.title?.toLowerCase() === bTitle).length > 1
-      
-      const aHasDup = aSlugDup || aTitleDup
-      const bHasDup = bSlugDup || bTitleDup
-      
-      // Duplicates first
-      if (aHasDup && !bHasDup) return -1
-      if (!aHasDup && bHasDup) return 1
-      
-      // Group by slug if both have slug duplicates
-      if (aSlugDup && bSlugDup) {
-        if (aSlug === bSlug) return 0
-        return aSlug.localeCompare(bSlug)
-      }
-      
-      // Group by title if both have title duplicates
-      if (aTitleDup && bTitleDup) {
-        if (aTitle === bTitle) return 0
-        return aTitle.localeCompare(bTitle)
-      }
-      
-      return 0
-    })
-    
     return filtered
   }, [products, debouncedSearchTerm, showQualityFilter, dataQualityIssues, duplicateFilter])
+
+  // Sort duplicates together only when needed (optimized separately)
+  const sortedProducts = useMemo(() => {
+    if (!showQualityFilter && !duplicateFilter) {
+      return filteredProducts
+    }
+    
+    // Create a copy to sort
+    const sorted = [...filteredProducts]
+    
+    // Group duplicates together
+    sorted.sort((a, b) => {
+      const aSlug = a.slug?.toLowerCase() || ''
+      const bSlug = b.slug?.toLowerCase() || ''
+      
+      if (aSlug === bSlug && aSlug) return 0
+      if (aSlug < bSlug) return -1
+      return 1
+    })
+    
+    return sorted
+  }, [filteredProducts, showQualityFilter, duplicateFilter])
 
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term)
@@ -894,7 +882,7 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map((product, index) => {
+            {sortedProducts.map((product, index) => {
               const duplicateGroups = (window as any).duplicateGroups as Map<string, string> || new Map()
               const slugColor = duplicateGroups.get(product.slug?.toLowerCase() || '')
               const titleColor = duplicateGroups.get(product.title?.toLowerCase() || '')
