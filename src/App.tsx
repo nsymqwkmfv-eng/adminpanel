@@ -303,8 +303,6 @@ function App() {
   // Function to check data quality issues
   const checkDataQuality = (productsData: Product[]): Map<string, string[]> => {
     const issues = new Map<string, string[]>()
-    const slugCounts = new Map<string, number>()
-    const titleCounts = new Map<string, number>()
     const duplicateGroups = new Map<string, string>()
     const duplicateColors = [
       '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
@@ -314,26 +312,34 @@ function App() {
     ]
     let colorIndex = 0
 
-    // Count occurrences for duplicate detection
-    productsData.forEach(product => {
-      const slug = product.slug?.toLowerCase() || ''
-      const title = product.title?.toLowerCase() || ''
-      slugCounts.set(slug, (slugCounts.get(slug) || 0) + 1)
-      titleCounts.set(title, (titleCounts.get(title) || 0) + 1)
+    // Create hash map of all products to detect EXACT duplicates
+    const productHashes = new Map<string, number[]>() // hash -> array of indices
+    
+    productsData.forEach((product, index) => {
+      const productHash = JSON.stringify({
+        title: product.title?.trim().toLowerCase(),
+        slug: product.slug?.trim().toLowerCase(),
+        brand: product.brand?.trim().toLowerCase(),
+        gender: product.gender?.trim().toLowerCase(),
+        price_15ml: product.price_15ml?.trim(),
+        price_30ml: product.price_30ml?.trim(),
+        price_50ml: product.price_50ml?.trim(),
+        top_notes: product.top_notes?.trim().toLowerCase(),
+        heart_notes: product.heart_notes?.trim().toLowerCase(),
+        base_notes: product.base_notes?.trim().toLowerCase(),
+        stock_status: product.stock_status?.trim().toLowerCase()
+      })
+      
+      if (!productHashes.has(productHash)) {
+        productHashes.set(productHash, [])
+      }
+      productHashes.get(productHash)!.push(index)
     })
 
-    // Assign colors to duplicate groups
-    productsData.forEach(product => {
-      const slug = product.slug?.toLowerCase() || ''
-      const title = product.title?.toLowerCase() || ''
-      
-      if ((slugCounts.get(slug) || 0) > 1 && !duplicateGroups.has(slug)) {
-        duplicateGroups.set(slug, duplicateColors[colorIndex % duplicateColors.length])
-        colorIndex++
-      }
-      
-      if ((titleCounts.get(title) || 0) > 1 && !duplicateGroups.has(title)) {
-        duplicateGroups.set(title, duplicateColors[colorIndex % duplicateColors.length])
+    // Assign colors to duplicate groups (only for EXACT complete duplicates)
+    productHashes.forEach((indices, hash) => {
+      if (indices.length > 1) {
+        duplicateGroups.set(hash, duplicateColors[colorIndex % duplicateColors.length])
         colorIndex++
       }
     })
@@ -342,14 +348,26 @@ function App() {
     ;(window as any).duplicateGroups = duplicateGroups
 
     // Check each product for issues
-    productsData.forEach(product => {
+    productsData.forEach((product) => {
       const productIssues: string[] = []
 
-      // Check for duplicates (slug or title) - combine into one tag
-      const hasDuplicateSlug = (slugCounts.get(product.slug?.toLowerCase() || '') || 0) > 1
-      const hasDuplicateTitle = (titleCounts.get(product.title?.toLowerCase() || '') || 0) > 1
+      // Check if this product is an EXACT complete duplicate
+      const productHash = JSON.stringify({
+        title: product.title?.trim().toLowerCase(),
+        slug: product.slug?.trim().toLowerCase(),
+        brand: product.brand?.trim().toLowerCase(),
+        gender: product.gender?.trim().toLowerCase(),
+        price_15ml: product.price_15ml?.trim(),
+        price_30ml: product.price_30ml?.trim(),
+        price_50ml: product.price_50ml?.trim(),
+        top_notes: product.top_notes?.trim().toLowerCase(),
+        heart_notes: product.heart_notes?.trim().toLowerCase(),
+        base_notes: product.base_notes?.trim().toLowerCase(),
+        stock_status: product.stock_status?.trim().toLowerCase()
+      })
       
-      if (hasDuplicateSlug || hasDuplicateTitle) {
+      const duplicateIndices = productHashes.get(productHash) || []
+      if (duplicateIndices.length > 1) {
         productIssues.push('duplicate')
       }
 
@@ -838,7 +856,15 @@ function App() {
   const handleDeleteProduct = useCallback((product: Product, e: React.MouseEvent) => {
     e.stopPropagation()
     if (window.confirm(`Are you sure you want to delete ${product.title}?`)) {
-      const updatedProducts = products.filter(p => p.slug !== product.slug)
+      // Find the exact index of this product instance (not by slug, by reference)
+      const indexToDelete = products.findIndex((p, idx) => 
+        p === product || (p.slug === product.slug && idx === selectedProductIndex)
+      )
+      
+      if (indexToDelete === -1) return
+      
+      // Use index to delete the SPECIFIC item, not all with same slug
+      const updatedProducts = products.filter((_, idx) => idx !== indexToDelete)
       setProducts(updatedProducts)
       
       // Save to localStorage
@@ -852,12 +878,14 @@ function App() {
       const completeDups = detectCompleteDuplicates(updatedProducts)
       setCompleteDuplicates(completeDups)
       
-      if (selectedProduct?.slug === product.slug) {
+      // Close detail panel if this was the selected product
+      if (indexToDelete === selectedProductIndex) {
         setSelectedProduct(updatedProducts[0] || null)
+        setSelectedProductIndex(-1)
         setShowDetailPanel(false)
       }
     }
-  }, [products, selectedProduct])
+  }, [products, selectedProduct, selectedProductIndex])
 
   const handleExportCSV = useCallback(() => {
     const csv = Papa.unparse(products)
