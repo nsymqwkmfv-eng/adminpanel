@@ -2106,3 +2106,658 @@ select.input-field option {
   text-align: center;
   line-height: 1.3;
 }
+
+/* ==================== MOBILE RESPONSIVENESS ==================== */
+
+/* Tablet Layout (768px and below) */
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+
+  /* Header - Compact and Mobile Optimized */
+  .header {
+    padding: 12px 16px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    margin: 0;
+  }
+
+  .header-center {
+    width: 100%;
+    order: 2;
+    margin: 8px 0 0 0;
+  }
+
+  .search-container {
+    width: 100%;
+    flex: 1;
+  }
+
+  .search-input {
+    width: 100%;
+    height: 40px;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  .header-right {
+    width: 100%;
+    order: 3;
+    margin-top: 8px;
+    gap: 8px;
+  }
+
+  .header button {
+    height: 40px;
+    padding: 0 12px;
+    font-size: 13px;
+    min-width: 44px;
+  }
+
+  /* Main Container */
+  .main-container {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  /* Table Container - Convert to Card View */
+  .table-container {
+    width: 100%;
+    min-width: 100%;
+    overflow-x: visible;
+    border-radius: 8px;
+    background: var(--surface-secondary);
+    padding: 8px;
+  }
+
+  .table {
+    width: 100%;
+    min-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .table-header {
+    display: none;
+  }
+
+  .table-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .table-row {
+    width: 100%;
+    min-width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 6px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    contain: unset;
+  }
+
+  .table-row:hover {
+    background: var(--surface-secondary);
+  }
+
+  .table-row:active {
+    transform: scale(0.98);
+  }
+
+  .table-cell {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+    min-height: 32px;
+  }
+
+  .table-cell::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .table-cell:first-child {
+    grid-template-columns: 1fr;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .table-cell:first-child::before {
+    content: '';
+    display: none;
+  }
+
+  /* Detail Panel - Full Screen on Mobile */
+  .detail-panel {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    z-index: 1000;
+    animation: slideInMobile 0.25s ease forwards;
+  }
+
+  @keyframes slideInMobile {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .detail-header {
+    padding: 16px 12px;
+  }
+
+  .detail-header h2 {
+    font-size: 18px;
+  }
+
+  .detail-content {
+    padding: 12px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .form-group {
+    margin-bottom: 12px;
+  }
+
+  .form-group label {
+    font-size: 12px;
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 14px;
+    min-height: 40px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+  }
+
+  .form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .form-actions button {
+    flex: 1;
+    padding: 12px;
+    font-size: 14px;
+    min-height: 44px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  /* Notes Panel - Full Screen on Mobile */
+  .notes-panel {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    z-index: 999;
+    animation: slideInMobile 0.25s ease forwards;
+  }
+
+  .notes-content {
+    padding: 12px;
+    height: calc(100vh - 80px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .notes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .note-item {
+    padding: 12px;
+    border-radius: 4px;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-color);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* Modals - Mobile Optimized */
+  .modal-overlay {
+    padding: 16px;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-height: 90vh;
+    margin: auto 0;
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .modal-content h2 {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  .modal-content p {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  .modal-buttons {
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+  }
+
+  .modal-buttons button {
+    padding: 12px;
+    font-size: 14px;
+    min-height: 44px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  /* Confirmation Modal - Bottom Notification on Mobile */
+  .confirm-modal {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+    animation: slideUp 0.25s ease forwards;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .confirm-modal-content {
+    width: 100%;
+    padding: 16px;
+  }
+
+  /* Buttons - Touch Friendly */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: opacity 0.15s ease;
+  }
+
+  button:active {
+    opacity: 0.8;
+  }
+
+  /* Inputs - Touch Friendly */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+    padding: 10px 12px;
+    min-height: 44px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+  }
+
+  /* Typography - Readable on Mobile */
+  h1 {
+    font-size: 20px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  h3 {
+    font-size: 16px;
+  }
+
+  p,
+  label,
+  span {
+    font-size: 14px;
+  }
+
+  /* Hide Horizontal Scroll Indicators on Mobile */
+  .table-container::after {
+    display: none;
+  }
+}
+
+/* Mobile Phone Layout (480px and below) */
+@media (max-width: 480px) {
+  body {
+    font-size: 14px;
+  }
+
+  /* Header - Minimal and Stacked */
+  .header {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+
+  .header h1 {
+    font-size: 16px;
+    width: 100%;
+    order: 1;
+  }
+
+  .header-center {
+    order: 2;
+    margin: 6px 0 0 0;
+  }
+
+  .search-input {
+    height: 36px;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .header-right {
+    order: 3;
+    margin-top: 6px;
+    justify-content: space-between;
+  }
+
+  .header button {
+    height: 36px;
+    padding: 0 10px;
+    font-size: 12px;
+    min-width: 40px;
+    flex: 1;
+  }
+
+  /* Main Container - Tight Spacing */
+  .main-container {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* Table Container - Card Layout */
+  .table-container {
+    padding: 6px;
+  }
+
+  .table-row {
+    padding: 10px;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .table-cell {
+    grid-template-columns: 80px 1fr;
+    gap: 6px;
+    font-size: 12px;
+    min-height: 28px;
+  }
+
+  .table-cell::before {
+    font-size: 10px;
+  }
+
+  /* Detail Panel - Full Height but Scrollable */
+  .detail-header {
+    padding: 12px 10px;
+  }
+
+  .detail-header h2 {
+    font-size: 16px;
+  }
+
+  .detail-header button {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 4px;
+  }
+
+  .detail-content {
+    padding: 10px;
+    max-height: calc(100vh - 80px);
+  }
+
+  .form-group {
+    margin-bottom: 10px;
+  }
+
+  .form-group label {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    padding: 6px 8px;
+    font-size: 13px;
+    min-height: 36px;
+  }
+
+  .form-group textarea {
+    min-height: 70px;
+  }
+
+  .form-actions {
+    gap: 6px;
+    margin-top: 12px;
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    padding: 10px;
+    font-size: 13px;
+    min-height: 40px;
+  }
+
+  /* Notes Panel */
+  .notes-header {
+    padding: 12px 10px;
+  }
+
+  .notes-header h3 {
+    font-size: 14px;
+  }
+
+  .notes-content {
+    padding: 10px;
+  }
+
+  .note-item {
+    padding: 10px;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  /* Modals */
+  .modal-content {
+    padding: 12px;
+    border-radius: 6px;
+  }
+
+  .modal-content h2 {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .modal-content p {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+
+  .modal-buttons {
+    gap: 6px;
+  }
+
+  .modal-buttons button {
+    padding: 10px;
+    font-size: 12px;
+    min-height: 40px;
+  }
+
+  /* Confirm Modal */
+  .confirm-modal-content {
+    padding: 12px;
+  }
+
+  .confirm-modal-content h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .confirm-modal-content p {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+
+  .confirm-buttons {
+    display: flex;
+    gap: 6px;
+  }
+
+  .confirm-buttons button {
+    flex: 1;
+    padding: 8px;
+    font-size: 12px;
+    min-height: 38px;
+  }
+
+  /* Typography */
+  h1 {
+    font-size: 16px;
+  }
+
+  h2 {
+    font-size: 14px;
+  }
+
+  h3 {
+    font-size: 13px;
+  }
+
+  p,
+  label,
+  span {
+    font-size: 12px;
+  }
+
+  /* Icons - Visible Size on Mobile */
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Input Fields - Optimize for Touch */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+    padding: 8px 10px;
+    min-height: 40px;
+  }
+
+  /* Remove Hover Effects on Touch Devices */
+  @media (hover: none) {
+    button:hover {
+      background: var(--surface-primary);
+    }
+
+    .table-row:hover {
+      background: var(--surface-primary);
+    }
+  }
+}
+
+/* Extra Small Devices (320px and below) */
+@media (max-width: 320px) {
+  .header h1 {
+    font-size: 14px;
+  }
+
+  .header button {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .table-cell {
+    grid-template-columns: 70px 1fr;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    font-size: 13px;
+    min-height: 36px;
+  }
+
+  .detail-header h2 {
+    font-size: 14px;
+  }
+}

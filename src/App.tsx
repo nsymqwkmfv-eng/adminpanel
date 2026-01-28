@@ -41,33 +41,33 @@ const TableRow = memo(({
       onClick={() => onClick(product)}
       className="table-row"
     >
-      <td>
+      <td data-label="Title" className="table-cell">
         <div className="row-number">{index + 1}</div>
         {product.title}
       </td>
-      <td className="slug-cell">{product.slug}</td>
-      <td>
+      <td data-label="Slug" className="table-cell slug-cell">{product.slug}</td>
+      <td data-label="Image" className="table-cell">
         <img 
           src={product.image} 
           alt={product.title} 
           className="table-image"
         />
       </td>
-      <td className="slug-cell">{product.image_alt}</td>
-      <td>{product.gender}</td>
-      <td>{product.price_15ml}</td>
-      <td>{product.price_30ml}</td>
-      <td>{product.price_50ml}</td>
-      <td>{product.brand}</td>
-      <td className="notes-cell">{product.top_notes}</td>
-      <td className="notes-cell">{product.heart_notes}</td>
-      <td className="notes-cell">{product.base_notes}</td>
-      <td className="link-cell">
+      <td data-label="Image Alt" className="table-cell slug-cell">{product.image_alt}</td>
+      <td data-label="Gender" className="table-cell">{product.gender}</td>
+      <td data-label="Price 15ml" className="table-cell">{product.price_15ml}</td>
+      <td data-label="Price 30ml" className="table-cell">{product.price_30ml}</td>
+      <td data-label="Price 50ml" className="table-cell">{product.price_50ml}</td>
+      <td data-label="Brand" className="table-cell">{product.brand}</td>
+      <td data-label="Top Notes" className="table-cell notes-cell">{product.top_notes}</td>
+      <td data-label="Heart Notes" className="table-cell notes-cell">{product.heart_notes}</td>
+      <td data-label="Base Notes" className="table-cell notes-cell">{product.base_notes}</td>
+      <td data-label="Link" className="table-cell link-cell">
         <a href={product.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
           {product.link ? 'Link' : '-'}
         </a>
       </td>
-      <td>
+      <td data-label="Stock" className="table-cell">
         <span className="stock-badge" data-stock={product.stock_status}>
           {product.stock_status}
         </span>
