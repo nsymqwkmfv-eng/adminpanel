@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react'
+import { flushSync } from 'react-dom'
 import Papa from 'papaparse'
 import Cropper from 'react-easy-crop'
 import { Trash, Moon, Sun, Upload, Plus, MagnifyingGlass, X, Download } from 'phosphor-react'
@@ -28,7 +29,8 @@ const loadedImages = new Set<string>()
 // Memoized table row component for better performance
 const TableRow = memo(({ 
   product, 
-  index, 
+  index,
+  displayIndex,
   onClick,
   issues = [],
   duplicateColor,
@@ -36,6 +38,7 @@ const TableRow = memo(({
 }: { 
   product: Product
   index: number
+  displayIndex?: number
   onClick: (product: Product, index: number) => void
   issues?: string[]
   duplicateColor?: string
@@ -72,7 +75,7 @@ const TableRow = memo(({
       <td data-label="Title" className="table-cell">
         <div className="title-with-indicators">
           <div className="title-content">
-            <div className="row-number">{index + 1}</div>
+            <div className="row-number">{displayIndex !== undefined ? displayIndex + 1 : index + 1}</div>
             <span>{product.title}</span>
           </div>
           {issues.length > 0 && (
@@ -754,13 +757,15 @@ function App() {
       const updatedProducts = [...products]
       updatedProducts[selectedProductIndex] = editedProduct
       
-      // Update UI immediately
-      setProducts(updatedProducts)
-      setSelectedProduct(editedProduct)
-      setEditedProduct(null)
-      setHasUnsavedChanges(false)
+      // Force synchronous UI update to prevent any lag
+      flushSync(() => {
+        setProducts(updatedProducts)
+        setSelectedProduct(editedProduct)
+        setEditedProduct(null)
+        setHasUnsavedChanges(false)
+      })
       
-      // Save to localStorage immediately (not deferred to ensure data consistency)
+      // Save to localStorage immediately after UI updates
       localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
       
       // Defer only the quality checks to avoid blocking UI
@@ -1011,17 +1016,28 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map((product, index) => {
+            {filteredProducts.map((product, filteredIndex) => {
               const duplicateGroups = (window as any).duplicateGroups as Map<string, string> || new Map()
               const slugColor = duplicateGroups.get(product.slug?.toLowerCase() || '')
               const titleColor = duplicateGroups.get(product.title?.toLowerCase() || '')
               const duplicateColor = slugColor || titleColor
               
+              // Find the actual index in the full products array
+              const actualIndex = products.findIndex(p => 
+                p.slug === product.slug && 
+                p.title === product.title && 
+                p.brand === product.brand &&
+                p.price_15ml === product.price_15ml &&
+                p.price_30ml === product.price_30ml &&
+                p.price_50ml === product.price_50ml
+              )
+              
               return (
                 <TableRow
-                  key={product.slug + '-' + index}
+                  key={product.slug + '-' + filteredIndex}
                   product={product}
-                  index={index}
+                  index={actualIndex}
+                  displayIndex={filteredIndex}
                   onClick={handleProductClick}
                   issues={dataQualityIssues.get(product.slug || product.title || '') || []}
                   duplicateColor={duplicateColor}
