@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react'
-import { flushSync } from 'react-dom'
 import Papa from 'papaparse'
 import Cropper from 'react-easy-crop'
 import { Trash, Moon, Sun, Upload, Plus, MagnifyingGlass, X, Download } from 'phosphor-react'
@@ -134,11 +133,12 @@ const TableRow = memo(({
     </tr>
   )
 }, (prevProps, nextProps) => {
-  // Only re-render if product data changed, not on parent renders
-  return prevProps.product.slug === nextProps.product.slug &&
+  // Only re-render if product reference, index, or visual props changed
+  return prevProps.product === nextProps.product &&
          prevProps.index === nextProps.index &&
-         JSON.stringify(prevProps.issues) === JSON.stringify(nextProps.issues) &&
-         prevProps.duplicateColor === nextProps.duplicateColor
+         prevProps.displayIndex === nextProps.displayIndex &&
+         prevProps.duplicateColor === nextProps.duplicateColor &&
+         prevProps.issues?.join('|') === nextProps.issues?.join('|')
 })
 
 TableRow.displayName = 'TableRow'
@@ -526,7 +526,10 @@ function App() {
   }, [])
 
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter(product =>
+    // Keep original index with each product to avoid O(n²) findIndex later
+    const indexed = products.map((p, i) => ({ product: p, originalIndex: i }))
+    
+    let filtered = indexed.filter(({ product }) =>
       product.title?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
       product.brand?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
       product.slug?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
@@ -539,17 +542,17 @@ function App() {
         const dupLower = duplicateFilter.toLowerCase()
         
         // First, find all products that match the filter (by slug or title)
-        const matchingProducts = filtered.filter(product =>
+        const matchingProducts = filtered.filter(({ product }) =>
           product.slug?.toLowerCase() === dupLower ||
           product.title?.toLowerCase() === dupLower
         )
         
         // Then, find ALL products that share the same slug or title as any matching product
         const duplicateSet = new Set<string>()
-        matchingProducts.forEach(p => {
+        matchingProducts.forEach(({ product: p }) => {
           const slug = p.slug?.toLowerCase()
           const title = p.title?.toLowerCase()
-          filtered.forEach(f => {
+          filtered.forEach(({ product: f }) => {
             if ((slug && f.slug?.toLowerCase() === slug) || 
                 (title && f.title?.toLowerCase() === title)) {
               duplicateSet.add(f.slug || f.title || '')
@@ -558,29 +561,38 @@ function App() {
         })
         
         // Filter to show only products in the duplicate group
-        filtered = filtered.filter(product =>
+        filtered = filtered.filter(({ product }) =>
           duplicateSet.has(product.slug || product.title || '')
         )
       } else {
         // Show all items with any quality issues
-        filtered = filtered.filter(product =>
+        filtered = filtered.filter(({ product }) =>
           dataQualityIssues.has(product.slug || product.title || '')
         )
       }
     }
     
+    // Precompute slug/title counts for sorting (avoid O(n²) in comparator)
+    const slugCounts = new Map<string, number>()
+    const titleCounts = new Map<string, number>()
+    filtered.forEach(({ product }) => {
+      const slug = product.slug?.toLowerCase() || ''
+      const title = product.title?.toLowerCase() || ''
+      slugCounts.set(slug, (slugCounts.get(slug) || 0) + 1)
+      titleCounts.set(title, (titleCounts.get(title) || 0) + 1)
+    })
+    
     // Sort to group duplicates together
     filtered.sort((a, b) => {
-      const aSlug = a.slug?.toLowerCase() || ''
-      const bSlug = b.slug?.toLowerCase() || ''
-      const aTitle = a.title?.toLowerCase() || ''
-      const bTitle = b.title?.toLowerCase() || ''
+      const aSlug = a.product.slug?.toLowerCase() || ''
+      const bSlug = b.product.slug?.toLowerCase() || ''
+      const aTitle = a.product.title?.toLowerCase() || ''
+      const bTitle = b.product.title?.toLowerCase() || ''
       
-      // Count duplicates
-      const aSlugDup = filtered.filter(p => p.slug?.toLowerCase() === aSlug).length > 1
-      const bSlugDup = filtered.filter(p => p.slug?.toLowerCase() === bSlug).length > 1
-      const aTitleDup = filtered.filter(p => p.title?.toLowerCase() === aTitle).length > 1
-      const bTitleDup = filtered.filter(p => p.title?.toLowerCase() === bTitle).length > 1
+      const aSlugDup = (slugCounts.get(aSlug) || 0) > 1
+      const bSlugDup = (slugCounts.get(bSlug) || 0) > 1
+      const aTitleDup = (titleCounts.get(aTitle) || 0) > 1
+      const bTitleDup = (titleCounts.get(bTitle) || 0) > 1
       
       const aHasDup = aSlugDup || aTitleDup
       const bHasDup = bSlugDup || bTitleDup
@@ -757,25 +769,25 @@ function App() {
       const updatedProducts = [...products]
       updatedProducts[selectedProductIndex] = editedProduct
       
-      // Force synchronous UI update to prevent any lag
-      flushSync(() => {
-        setProducts(updatedProducts)
-        setSelectedProduct(editedProduct)
-        setEditedProduct(null)
-        setHasUnsavedChanges(false)
-      })
+      // Update UI immediately - React will batch these updates
+      setProducts(updatedProducts)
+      setSelectedProduct(editedProduct)
+      setEditedProduct(null)
+      setHasUnsavedChanges(false)
       
-      // Save to localStorage immediately after UI updates
-      localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
-      
-      // Defer only the quality checks to avoid blocking UI
-      requestAnimationFrame(() => {
+      // Defer heavy operations to avoid blocking the UI
+      setTimeout(() => {
+        // Save to localStorage (synchronous + expensive with large data)
+        localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
+        
+        // Re-check data quality (expensive computation)
         const issues = checkDataQuality(updatedProducts)
         setDataQualityIssues(issues)
         
+        // Detect complete duplicates (expensive computation)
         const completeDups = detectCompleteDuplicates(updatedProducts)
         setCompleteDuplicates(completeDups)
-      })
+      }, 0)
     }
   }, [editedProduct, selectedProduct, selectedProductIndex, products])
 
@@ -1016,27 +1028,17 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map((product, filteredIndex) => {
+            {filteredProducts.map(({ product, originalIndex }, filteredIndex) => {
               const duplicateGroups = (window as any).duplicateGroups as Map<string, string> || new Map()
               const slugColor = duplicateGroups.get(product.slug?.toLowerCase() || '')
               const titleColor = duplicateGroups.get(product.title?.toLowerCase() || '')
               const duplicateColor = slugColor || titleColor
               
-              // Find the actual index in the full products array
-              const actualIndex = products.findIndex(p => 
-                p.slug === product.slug && 
-                p.title === product.title && 
-                p.brand === product.brand &&
-                p.price_15ml === product.price_15ml &&
-                p.price_30ml === product.price_30ml &&
-                p.price_50ml === product.price_50ml
-              )
-              
               return (
                 <TableRow
-                  key={product.slug + '-' + filteredIndex}
+                  key={`${product.slug}-${originalIndex}`}
                   product={product}
-                  index={actualIndex}
+                  index={originalIndex}
                   displayIndex={filteredIndex}
                   onClick={handleProductClick}
                   issues={dataQualityIssues.get(product.slug || product.title || '') || []}
