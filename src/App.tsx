@@ -30,28 +30,32 @@ const TableRow = memo(({
   product, 
   index, 
   onClick,
-  issues = []
+  issues = [],
+  duplicateColor,
+  onDuplicateClick
 }: { 
   product: Product
   index: number
   onClick: (product: Product) => void
   issues?: string[]
+  duplicateColor?: string
+  onDuplicateClick?: (type: 'slug' | 'title', value: string) => void
 }) => {
   // Helper to get tag label and color with short abbreviations
   const getIssueTag = (issue: string) => {
     const tagMap: Record<string, { label: string; short: string; color: string }> = {
-      'duplicate-slug': { label: 'Duplicate Slug', short: 'DUP-SLUG', color: '#ef4444' },
-      'duplicate-title': { label: 'Duplicate Title', short: 'DUP-TITLE', color: '#f97316' },
-      'no-price-15ml': { label: 'Missing 15ml Price', short: '15ML', color: '#eab308' },
-      'no-price-30ml': { label: 'Missing 30ml Price', short: '30ML', color: '#eab308' },
-      'no-price-50ml': { label: 'Missing 50ml Price', short: '50ML', color: '#eab308' },
-      'no-image': { label: 'Missing Image', short: 'IMG', color: '#ec4899' },
-      'no-top-notes': { label: 'Missing Top Notes', short: 'TOP', color: '#a78bfa' },
-      'no-heart-notes': { label: 'Missing Heart Notes', short: 'HEART', color: '#a78bfa' },
-      'no-base-notes': { label: 'Missing Base Notes', short: 'BASE', color: '#a78bfa' },
-      'no-brand': { label: 'Missing Brand', short: 'BRAND', color: '#06b6d4' },
-      'no-link': { label: 'Missing Link', short: 'LINK', color: '#3b82f6' },
-      'no-slug': { label: 'Missing Slug', short: 'SLUG', color: '#ef4444' }
+      'duplicate-slug': { label: 'Duplicate Slug - Click to see all', short: '🔄 DUP', color: '#ef4444' },
+      'duplicate-title': { label: 'Duplicate Title - Click to see all', short: '🔄 DUP', color: '#f97316' },
+      'no-price-15ml': { label: 'Missing 15ml Price', short: '⚠️ 15ml', color: '#eab308' },
+      'no-price-30ml': { label: 'Missing 30ml Price', short: '⚠️ 30ml', color: '#eab308' },
+      'no-price-50ml': { label: 'Missing 50ml Price', short: '⚠️ 50ml', color: '#eab308' },
+      'no-image': { label: 'Missing Image', short: '📷 IMG', color: '#ec4899' },
+      'no-top-notes': { label: 'Missing Top Notes', short: '🔝 Notes', color: '#a78bfa' },
+      'no-heart-notes': { label: 'Missing Heart Notes', short: '❤️ Notes', color: '#a78bfa' },
+      'no-base-notes': { label: 'Missing Base Notes', short: '⬇️ Notes', color: '#a78bfa' },
+      'no-brand': { label: 'Missing Brand', short: '🏷️ Brand', color: '#06b6d4' },
+      'no-link': { label: 'Missing Link', short: '🔗 Link', color: '#3b82f6' },
+      'no-slug': { label: 'Missing Slug', short: '❌ Slug', color: '#ef4444' }
     }
     return tagMap[issue] || { label: issue, short: issue.toUpperCase(), color: '#6b7280' }
   }
@@ -62,6 +66,10 @@ const TableRow = memo(({
       onClick={() => onClick(product)}
       className="table-row"
       data-has-issues={issues.length > 0 ? 'true' : 'false'}
+      style={duplicateColor ? {
+        borderLeft: `4px solid ${duplicateColor}`,
+        backgroundColor: `${duplicateColor}08`
+      } : {}}
     >
       <td data-label="Title" className="table-cell">
         <div className="title-with-indicators">
@@ -73,12 +81,23 @@ const TableRow = memo(({
             <div className="quality-tags-inline">
               {issues.map((issue) => {
                 const tag = getIssueTag(issue)
+                const isDuplicate = issue === 'duplicate-slug' || issue === 'duplicate-title'
                 return (
                   <span
                     key={issue}
-                    className="quality-tag"
+                    className={`quality-tag ${isDuplicate ? 'clickable' : ''}`}
                     title={tag.label}
                     style={{ backgroundColor: tag.color + '20', color: tag.color, borderColor: tag.color }}
+                    onClick={(e) => {
+                      if (isDuplicate && onDuplicateClick) {
+                        e.stopPropagation()
+                        if (issue === 'duplicate-slug') {
+                          onDuplicateClick('slug', product.slug)
+                        } else if (issue === 'duplicate-title') {
+                          onDuplicateClick('title', product.title)
+                        }
+                      }
+                    }}
                   >
                     {tag.short}
                   </span>
@@ -121,7 +140,8 @@ const TableRow = memo(({
   // Only re-render if product data changed, not on parent renders
   return prevProps.product.slug === nextProps.product.slug &&
          prevProps.index === nextProps.index &&
-         JSON.stringify(prevProps.issues) === JSON.stringify(nextProps.issues)
+         JSON.stringify(prevProps.issues) === JSON.stringify(nextProps.issues) &&
+         prevProps.duplicateColor === nextProps.duplicateColor
 })
 
 TableRow.displayName = 'TableRow'
@@ -181,6 +201,7 @@ function App() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
   const [dataQualityIssues, setDataQualityIssues] = useState<Map<string, string[]>>(new Map())
   const [showQualityFilter, setShowQualityFilter] = useState(false)
+  const [duplicateFilter, setDuplicateFilter] = useState<string | null>(null)
 
   const theme = isDarkMode ? 'dark' : 'light'
 
@@ -189,6 +210,14 @@ function App() {
     const issues = new Map<string, string[]>()
     const slugCounts = new Map<string, number>()
     const titleCounts = new Map<string, number>()
+    const duplicateGroups = new Map<string, string>()
+    const duplicateColors = [
+      '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
+      '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
+      '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
+      '#ec4899', '#f43f5e'
+    ]
+    let colorIndex = 0
 
     // Count occurrences for duplicate detection
     productsData.forEach(product => {
@@ -197,6 +226,25 @@ function App() {
       slugCounts.set(slug, (slugCounts.get(slug) || 0) + 1)
       titleCounts.set(title, (titleCounts.get(title) || 0) + 1)
     })
+
+    // Assign colors to duplicate groups
+    productsData.forEach(product => {
+      const slug = product.slug?.toLowerCase() || ''
+      const title = product.title?.toLowerCase() || ''
+      
+      if ((slugCounts.get(slug) || 0) > 1 && !duplicateGroups.has(slug)) {
+        duplicateGroups.set(slug, duplicateColors[colorIndex % duplicateColors.length])
+        colorIndex++
+      }
+      
+      if ((titleCounts.get(title) || 0) > 1 && !duplicateGroups.has(title)) {
+        duplicateGroups.set(title, duplicateColors[colorIndex % duplicateColors.length])
+        colorIndex++
+      }
+    })
+
+    // Store duplicate groups in window for access by other components
+    ;(window as any).duplicateGroups = duplicateGroups
 
     // Check each product for issues
     productsData.forEach(product => {
@@ -212,14 +260,20 @@ function App() {
         productIssues.push('duplicate-title')
       }
 
-      // Check for missing prices
-      if (!product.price_15ml || product.price_15ml.trim() === '') {
+      // Check for missing or invalid prices (empty, '-', '0', or whitespace)
+      const isInvalidPrice = (price: string) => {
+        if (!price) return true
+        const trimmed = price.trim()
+        return trimmed === '' || trimmed === '-' || trimmed === '0' || trimmed === 'N/A'
+      }
+
+      if (isInvalidPrice(product.price_15ml)) {
         productIssues.push('no-price-15ml')
       }
-      if (!product.price_30ml || product.price_30ml.trim() === '') {
+      if (isInvalidPrice(product.price_30ml)) {
         productIssues.push('no-price-30ml')
       }
-      if (!product.price_50ml || product.price_50ml.trim() === '') {
+      if (isInvalidPrice(product.price_50ml)) {
         productIssues.push('no-price-50ml')
       }
 
@@ -375,13 +429,57 @@ function App() {
     
     // Filter by quality issues if filter is active
     if (showQualityFilter) {
-      filtered = filtered.filter(product =>
-        dataQualityIssues.has(product.slug || product.title || '')
-      )
+      if (duplicateFilter) {
+        // Show only items matching the duplicate slug or title
+        filtered = filtered.filter(product =>
+          product.slug?.toLowerCase() === duplicateFilter.toLowerCase() ||
+          product.title?.toLowerCase() === duplicateFilter.toLowerCase()
+        )
+      } else {
+        // Show all items with any quality issues
+        filtered = filtered.filter(product =>
+          dataQualityIssues.has(product.slug || product.title || '')
+        )
+      }
     }
     
+    // Sort to group duplicates together
+    filtered.sort((a, b) => {
+      const aSlug = a.slug?.toLowerCase() || ''
+      const bSlug = b.slug?.toLowerCase() || ''
+      const aTitle = a.title?.toLowerCase() || ''
+      const bTitle = b.title?.toLowerCase() || ''
+      
+      // Count duplicates
+      const aSlugDup = filtered.filter(p => p.slug?.toLowerCase() === aSlug).length > 1
+      const bSlugDup = filtered.filter(p => p.slug?.toLowerCase() === bSlug).length > 1
+      const aTitleDup = filtered.filter(p => p.title?.toLowerCase() === aTitle).length > 1
+      const bTitleDup = filtered.filter(p => p.title?.toLowerCase() === bTitle).length > 1
+      
+      const aHasDup = aSlugDup || aTitleDup
+      const bHasDup = bSlugDup || bTitleDup
+      
+      // Duplicates first
+      if (aHasDup && !bHasDup) return -1
+      if (!aHasDup && bHasDup) return 1
+      
+      // Group by slug if both have slug duplicates
+      if (aSlugDup && bSlugDup) {
+        if (aSlug === bSlug) return 0
+        return aSlug.localeCompare(bSlug)
+      }
+      
+      // Group by title if both have title duplicates
+      if (aTitleDup && bTitleDup) {
+        if (aTitle === bTitle) return 0
+        return aTitle.localeCompare(bTitle)
+      }
+      
+      return 0
+    })
+    
     return filtered
-  }, [products, debouncedSearchTerm, showQualityFilter, dataQualityIssues])
+  }, [products, debouncedSearchTerm, showQualityFilter, dataQualityIssues, duplicateFilter])
 
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term)
@@ -644,12 +742,30 @@ function App() {
         {dataQualityIssues.size > 0 && (
           <div className="quality-summary">
             <strong>⚠️ Data Quality Issues:</strong>
-            <span>{dataQualityIssues.size} products need attention</span>
+            <span>
+              {duplicateFilter 
+                ? `Showing duplicates for: ${duplicateFilter}` 
+                : `${dataQualityIssues.size} products need attention`}
+            </span>
+            {duplicateFilter && (
+              <button
+                className="quality-filter-btn"
+                onClick={() => {
+                  setDuplicateFilter(null)
+                  setShowQualityFilter(false)
+                }}
+              >
+                Clear Filter
+              </button>
+            )}
             <button
-              className={`quality-filter-btn ${showQualityFilter ? 'active' : ''}`}
-              onClick={() => setShowQualityFilter(!showQualityFilter)}
+              className={`quality-filter-btn ${showQualityFilter && !duplicateFilter ? 'active' : ''}`}
+              onClick={() => {
+                setShowQualityFilter(!showQualityFilter)
+                setDuplicateFilter(null)
+              }}
             >
-              {showQualityFilter ? 'Show All' : 'Show Issues Only'}
+              {showQualityFilter && !duplicateFilter ? 'Show All' : 'Show Issues Only'}
             </button>
           </div>
         )}
@@ -673,15 +789,27 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map((product, index) => (
-              <TableRow
-                key={product.slug}
-                product={product}
-                index={index}
-                onClick={handleProductClick}
-                issues={dataQualityIssues.get(product.slug || product.title || '') || []}
-              />
-            ))}
+            {filteredProducts.map((product, index) => {
+              const duplicateGroups = (window as any).duplicateGroups as Map<string, string> || new Map()
+              const slugColor = duplicateGroups.get(product.slug?.toLowerCase() || '')
+              const titleColor = duplicateGroups.get(product.title?.toLowerCase() || '')
+              const duplicateColor = slugColor || titleColor
+              
+              return (
+                <TableRow
+                  key={product.slug + '-' + index}
+                  product={product}
+                  index={index}
+                  onClick={handleProductClick}
+                  issues={dataQualityIssues.get(product.slug || product.title || '') || []}
+                  duplicateColor={duplicateColor}
+                  onDuplicateClick={(_type, value) => {
+                    setDuplicateFilter(value)
+                    setShowQualityFilter(true)
+                  }}
+                />
+              )
+            })}
           </tbody>
         </table>
       </div>

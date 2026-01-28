@@ -2821,11 +2821,28 @@ select.input-field option {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   animation: fadeIn 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .quality-tag:hover {
   opacity: 0.8;
   cursor: help;
+}
+
+.quality-tag.clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quality-tag.clickable:hover {
+  transform: scale(1.05);
+  opacity: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.quality-tag.clickable:active {
+  transform: scale(0.95);
 }
 
 .table-row[data-has-issues="true"] {
