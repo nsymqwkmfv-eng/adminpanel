@@ -201,6 +201,7 @@ function App() {
   const [showQualityFilter, setShowQualityFilter] = useState(false)
   const [duplicateFilter, setDuplicateFilter] = useState<string | null>(null)
   const [completeDuplicates, setCompleteDuplicates] = useState<number>(0)
+  const [isAddingNew, setIsAddingNew] = useState(false)
 
   const theme = isDarkMode ? 'dark' : 'light'
 
@@ -782,42 +783,107 @@ function App() {
   }, [cropImage, croppedAreaPixels, selectedProduct, handleProductUpdate])
 
   const handleSaveChanges = useCallback(() => {
-    if (editedProduct && selectedProduct && selectedProductIndex >= 0) {
-      // Use array index to update the exact product (handles duplicates correctly)
-      const updatedProducts = [...products]
-      updatedProducts[selectedProductIndex] = editedProduct
-      
-      // Update UI immediately - React will batch these updates
+    if (!editedProduct) return
+
+    let updatedProducts: Product[]
+    
+    if (isAddingNew) {
+      // Adding a new product - append to array
+      updatedProducts = [...products, editedProduct]
       setProducts(updatedProducts)
       setSelectedProduct(editedProduct)
-      setEditedProduct(null)
-      setHasUnsavedChanges(false)
-      
-      // Defer heavy operations to avoid blocking the UI
-      setTimeout(() => {
-        // Save to localStorage (synchronous + expensive with large data)
-        localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
-        
-        // Re-check data quality (expensive computation)
-        const issues = checkDataQuality(updatedProducts)
-        setDataQualityIssues(issues)
-        
-        // Detect complete duplicates (expensive computation)
-        const completeDups = detectCompleteDuplicates(updatedProducts)
-        setCompleteDuplicates(completeDups)
-      }, 0)
+      setSelectedProductIndex(updatedProducts.length - 1)
+      setIsAddingNew(false)
+    } else if (selectedProduct && selectedProductIndex >= 0) {
+      // Editing existing product - update by exact index
+      updatedProducts = [...products]
+      updatedProducts[selectedProductIndex] = editedProduct
+      setProducts(updatedProducts)
+      setSelectedProduct(editedProduct)
+    } else {
+      return
     }
-  }, [editedProduct, selectedProduct, selectedProductIndex, products])
+    
+    // Update UI immediately
+    setEditedProduct(null)
+    setHasUnsavedChanges(false)
+    
+    // Defer heavy operations to avoid blocking UI
+    setTimeout(() => {
+      // Save to localStorage (synchronous + expensive with large data)
+      localStorage.setItem('perfume_products', JSON.stringify(updatedProducts))
+      
+      // Re-check data quality (expensive computation)
+      const issues = checkDataQuality(updatedProducts)
+      setDataQualityIssues(issues)
+      
+      // Detect complete duplicates (expensive computation)
+      const completeDups = detectCompleteDuplicates(updatedProducts)
+      setCompleteDuplicates(completeDups)
+    }, 0)
+  }, [editedProduct, selectedProduct, selectedProductIndex, products, isAddingNew])
 
   const handleDiscardChanges = useCallback(() => {
     setEditedProduct(null)
     setHasUnsavedChanges(false)
     setShowConfirmModal(false)
+    setIsAddingNew(false)
     if (pendingAction) {
       pendingAction()
       setPendingAction(null)
     }
   }, [pendingAction])
+
+  const handleAddNewProduct = useCallback(() => {
+    if (hasUnsavedChanges) {
+      setPendingAction(() => () => {
+        const emptyProduct: Product = {
+          slug: '',
+          title: '',
+          image: '',
+          image_alt: '',
+          gender: 'Unisex',
+          price_15ml: '',
+          price_30ml: '',
+          price_50ml: '',
+          brand: '',
+          top_notes: '',
+          heart_notes: '',
+          base_notes: '',
+          link: '',
+          stock_status: 'Stokda Var'
+        }
+        setSelectedProduct(emptyProduct)
+        setEditedProduct(emptyProduct)
+        setSelectedProductIndex(-1)
+        setIsAddingNew(true)
+        setShowDetailPanel(true)
+      })
+      setShowConfirmModal(true)
+    } else {
+      const emptyProduct: Product = {
+        slug: '',
+        title: '',
+        image: '',
+        image_alt: '',
+        gender: 'Unisex',
+        price_15ml: '',
+        price_30ml: '',
+        price_50ml: '',
+        brand: '',
+        top_notes: '',
+        heart_notes: '',
+        base_notes: '',
+        link: '',
+        stock_status: 'Stokda Var'
+      }
+      setSelectedProduct(emptyProduct)
+      setEditedProduct(emptyProduct)
+      setSelectedProductIndex(-1)
+      setIsAddingNew(true)
+      setShowDetailPanel(true)
+    }
+  }, [hasUnsavedChanges])
 
   const handleCloseWithCheck = useCallback(() => {
     if (hasUnsavedChanges) {
@@ -826,6 +892,7 @@ function App() {
         setSelectedProduct(null)
         setEditedProduct(null)
         setSelectedProductIndex(-1)
+        setIsAddingNew(false)
       })
       setShowConfirmModal(true)
     } else {
@@ -833,6 +900,7 @@ function App() {
       setSelectedProduct(null)
       setEditedProduct(null)
       setSelectedProductIndex(-1)
+      setIsAddingNew(false)
     }
   }, [hasUnsavedChanges])
 
@@ -965,6 +1033,14 @@ function App() {
         <div className="header-actions">
           <button 
             className="export-btn"
+            onClick={handleAddNewProduct}
+            title="Add new perfume product"
+          >
+            <Plus size={20} weight="duotone" />
+            Yeni Məhsul
+          </button>
+          <button 
+            className="export-btn"
             onClick={handleExportCSV}
             title="Export CSV with all changes"
           >
@@ -1082,7 +1158,7 @@ function App() {
           <div className="detail-overlay" onClick={handleCloseWithCheck} />
           <div className="detail-panel">
             <div className="detail-header">
-              <h2>Ətir Redaktəsi</h2>
+              <h2>{isAddingNew ? 'Yeni Məhsul Əlavə Et' : 'Ətir Redaktəsi'}</h2>
               <div className="detail-header-actions">
                 <button className="close-btn" onClick={handleCloseWithCheck}>
                   <X size={24} weight="bold" />
@@ -1319,15 +1395,17 @@ function App() {
                       </div>
                     </div>
 
-                    <div className="form-actions">
-                      <button
-                        className="delete-btn-full"
-                        onClick={(e) => handleDeleteProduct(selectedProductIndex, e)}
-                      >
-                        <Trash size={18} weight="bold" />
-                        Məhsulu Sil
-                      </button>
-                    </div>
+                    {!isAddingNew && (
+                      <div className="form-actions">
+                        <button
+                          className="delete-btn-full"
+                          onClick={(e) => handleDeleteProduct(selectedProductIndex, e)}
+                        >
+                          <Trash size={18} weight="bold" />
+                          Məhsulu Sil
+                        </button>
+                      </div>
+                    )}
                   </>
                 )
               })()}
