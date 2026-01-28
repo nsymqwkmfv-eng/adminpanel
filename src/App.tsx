@@ -29,21 +29,62 @@ const loadedImages = new Set<string>()
 const TableRow = memo(({ 
   product, 
   index, 
-  onClick 
+  onClick,
+  issues = []
 }: { 
   product: Product
   index: number
   onClick: (product: Product) => void
+  issues?: string[]
 }) => {
+  // Helper to get tag label and color
+  const getIssueTag = (issue: string) => {
+    const tagMap: Record<string, { label: string; color: string }> = {
+      'duplicate-slug': { label: 'Duplicate Slug', color: '#ef4444' },
+      'duplicate-title': { label: 'Duplicate Title', color: '#f97316' },
+      'no-price-15ml': { label: 'No 15ml Price', color: '#eab308' },
+      'no-price-30ml': { label: 'No 30ml Price', color: '#eab308' },
+      'no-price-50ml': { label: 'No 50ml Price', color: '#eab308' },
+      'no-image': { label: 'No Image', color: '#ec4899' },
+      'no-top-notes': { label: 'No Top Notes', color: '#a78bfa' },
+      'no-heart-notes': { label: 'No Heart Notes', color: '#a78bfa' },
+      'no-base-notes': { label: 'No Base Notes', color: '#a78bfa' },
+      'no-brand': { label: 'No Brand', color: '#06b6d4' },
+      'no-link': { label: 'No Link', color: '#3b82f6' },
+      'no-slug': { label: 'No Slug', color: '#ef4444' }
+    }
+    return tagMap[issue] || { label: issue, color: '#6b7280' }
+  }
+
   // Images are preloaded, so we can use them directly
   return (
     <tr 
       onClick={() => onClick(product)}
       className="table-row"
+      data-has-issues={issues.length > 0 ? 'true' : 'false'}
     >
       <td data-label="Title" className="table-cell">
         <div className="row-number">{index + 1}</div>
-        {product.title}
+        <div style={{ flex: 1 }}>
+          {product.title}
+          {issues.length > 0 && (
+            <div className="quality-tags">
+              {issues.map((issue) => {
+                const tag = getIssueTag(issue)
+                return (
+                  <span
+                    key={issue}
+                    className="quality-tag"
+                    title={tag.label}
+                    style={{ backgroundColor: tag.color + '20', color: tag.color, borderColor: tag.color }}
+                  >
+                    {tag.label.split(' ')[0]}
+                  </span>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </td>
       <td data-label="Slug" className="table-cell slug-cell">{product.slug}</td>
       <td data-label="Image" className="table-cell">
@@ -77,7 +118,8 @@ const TableRow = memo(({
 }, (prevProps, nextProps) => {
   // Only re-render if product data changed, not on parent renders
   return prevProps.product.slug === nextProps.product.slug &&
-         prevProps.index === nextProps.index
+         prevProps.index === nextProps.index &&
+         JSON.stringify(prevProps.issues) === JSON.stringify(nextProps.issues)
 })
 
 TableRow.displayName = 'TableRow'
@@ -135,8 +177,88 @@ function App() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
+  const [dataQualityIssues, setDataQualityIssues] = useState<Map<string, string[]>>(new Map())
+  const [showQualityFilter, setShowQualityFilter] = useState(false)
 
   const theme = isDarkMode ? 'dark' : 'light'
+
+  // Function to check data quality issues
+  const checkDataQuality = (productsData: Product[]): Map<string, string[]> => {
+    const issues = new Map<string, string[]>()
+    const slugCounts = new Map<string, number>()
+    const titleCounts = new Map<string, number>()
+
+    // Count occurrences for duplicate detection
+    productsData.forEach(product => {
+      const slug = product.slug?.toLowerCase() || ''
+      const title = product.title?.toLowerCase() || ''
+      slugCounts.set(slug, (slugCounts.get(slug) || 0) + 1)
+      titleCounts.set(title, (titleCounts.get(title) || 0) + 1)
+    })
+
+    // Check each product for issues
+    productsData.forEach(product => {
+      const productIssues: string[] = []
+
+      // Check for duplicate slug
+      if ((slugCounts.get(product.slug?.toLowerCase() || '') || 0) > 1) {
+        productIssues.push('duplicate-slug')
+      }
+
+      // Check for duplicate title
+      if ((titleCounts.get(product.title?.toLowerCase() || '') || 0) > 1) {
+        productIssues.push('duplicate-title')
+      }
+
+      // Check for missing prices
+      if (!product.price_15ml || product.price_15ml.trim() === '') {
+        productIssues.push('no-price-15ml')
+      }
+      if (!product.price_30ml || product.price_30ml.trim() === '') {
+        productIssues.push('no-price-30ml')
+      }
+      if (!product.price_50ml || product.price_50ml.trim() === '') {
+        productIssues.push('no-price-50ml')
+      }
+
+      // Check for missing image
+      if (!product.image || product.image.trim() === '') {
+        productIssues.push('no-image')
+      }
+
+      // Check for missing description/notes
+      if (!product.top_notes || product.top_notes.trim() === '') {
+        productIssues.push('no-top-notes')
+      }
+      if (!product.heart_notes || product.heart_notes.trim() === '') {
+        productIssues.push('no-heart-notes')
+      }
+      if (!product.base_notes || product.base_notes.trim() === '') {
+        productIssues.push('no-base-notes')
+      }
+
+      // Check for missing brand
+      if (!product.brand || product.brand.trim() === '') {
+        productIssues.push('no-brand')
+      }
+
+      // Check for missing link
+      if (!product.link || product.link.trim() === '') {
+        productIssues.push('no-link')
+      }
+
+      // Check for empty slug
+      if (!product.slug || product.slug.trim() === '') {
+        productIssues.push('no-slug')
+      }
+
+      if (productIssues.length > 0) {
+        issues.set(product.slug || product.title || 'unknown', productIssues)
+      }
+    })
+
+    return issues
+  }
 
   useEffect(() => {
     const root = document.documentElement
@@ -224,6 +346,10 @@ function App() {
         setProducts(productsData)
         setNotes(notesData)
         
+        // Check data quality issues
+        const issues = checkDataQuality(productsData)
+        setDataQualityIssues(issues)
+        
         // Small delay for smooth transition
         setTimeout(() => {
           setLoadingProgress(100)
@@ -239,12 +365,21 @@ function App() {
   }, [])
 
   const filteredProducts = useMemo(() => {
-    return products.filter(product =>
+    let filtered = products.filter(product =>
       product.title?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
       product.brand?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
       product.slug?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
     )
-  }, [products, debouncedSearchTerm])
+    
+    // Filter by quality issues if filter is active
+    if (showQualityFilter) {
+      filtered = filtered.filter(product =>
+        dataQualityIssues.has(product.slug || product.title || '')
+      )
+    }
+    
+    return filtered
+  }, [products, debouncedSearchTerm, showQualityFilter, dataQualityIssues])
 
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term)
@@ -504,6 +639,18 @@ function App() {
       </div>
 
       <div className="table-container">
+        {dataQualityIssues.size > 0 && (
+          <div className="quality-summary">
+            <strong>⚠️ Data Quality Issues:</strong>
+            <span>{dataQualityIssues.size} products need attention</span>
+            <button
+              className={`quality-filter-btn ${showQualityFilter ? 'active' : ''}`}
+              onClick={() => setShowQualityFilter(!showQualityFilter)}
+            >
+              {showQualityFilter ? 'Show All' : 'Show Issues Only'}
+            </button>
+          </div>
+        )}
         <table className="perfume-table">
           <thead>
             <tr>
@@ -530,6 +677,7 @@ function App() {
                 product={product}
                 index={index}
                 onClick={handleProductClick}
+                issues={dataQualityIssues.get(product.slug || product.title || '') || []}
               />
             ))}
           </tbody>
