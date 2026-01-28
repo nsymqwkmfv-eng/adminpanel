@@ -190,6 +190,7 @@ function App() {
   const [noteSelectorSearch, setNoteSelectorSearch] = useState('')
   const debouncedNoteSelectorSearch = useDebounce(noteSelectorSearch, 150)
   const [editedProduct, setEditedProduct] = useState<Product | null>(null)
+  const [originalSlug, setOriginalSlug] = useState<string>('')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
@@ -749,14 +750,17 @@ function App() {
 
   const handleSaveChanges = useCallback(() => {
     if (editedProduct && selectedProduct) {
+      // Use originalSlug to find the product, in case slug was edited
+      const slugToMatch = originalSlug || selectedProduct.slug
       const updatedProducts = products.map(p =>
-        p.slug === selectedProduct.slug ? editedProduct : p
+        p.slug === slugToMatch ? editedProduct : p
       )
       
       // Update UI immediately
       setProducts(updatedProducts)
       setSelectedProduct(editedProduct)
       setEditedProduct(null)
+      setOriginalSlug('')
       setHasUnsavedChanges(false)
       
       // Defer expensive operations to avoid blocking UI
@@ -773,10 +777,11 @@ function App() {
         setCompleteDuplicates(completeDups)
       }, 0)
     }
-  }, [editedProduct, selectedProduct, products])
+  }, [editedProduct, selectedProduct, products, originalSlug])
 
   const handleDiscardChanges = useCallback(() => {
     setEditedProduct(null)
+    setOriginalSlug('')
     setHasUnsavedChanges(false)
     setShowConfirmModal(false)
     if (pendingAction) {
@@ -791,12 +796,14 @@ function App() {
         setShowDetailPanel(false)
         setSelectedProduct(null)
         setEditedProduct(null)
+        setOriginalSlug('')
       })
       setShowConfirmModal(true)
     } else {
       setShowDetailPanel(false)
       setSelectedProduct(null)
       setEditedProduct(null)
+      setOriginalSlug('')
     }
   }, [hasUnsavedChanges])
 
@@ -804,12 +811,14 @@ function App() {
     if (hasUnsavedChanges) {
       setPendingAction(() => () => {
         setSelectedProduct(product)
+        setOriginalSlug(product.slug)
         setEditedProduct(null)
         setShowDetailPanel(true)
       })
       setShowConfirmModal(true)
     } else {
       setSelectedProduct(product)
+      setOriginalSlug(product.slug)
       setEditedProduct(null)
       setShowDetailPanel(true)
     }
