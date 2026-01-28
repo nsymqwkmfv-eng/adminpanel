@@ -2764,11 +2764,46 @@ select.input-field option {
 
 /* ==================== DATA QUALITY TAGS ==================== */
 
+.title-with-indicators {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.title-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.title-content .row-number {
+  flex-shrink: 0;
+}
+
+.title-content span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .quality-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 6px;
+}
+
+.quality-tags-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .quality-tag {
@@ -2838,6 +2873,17 @@ select.input-field option {
 
 /* Tablet Quality Tags */
 @media (max-width: 768px) {
+  .title-with-indicators {
+    flex-wrap: wrap;
+  }
+
+  .quality-tags-inline {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    margin-top: 4px;
+  }
+
   .quality-tag {
     padding: 2px 6px;
     font-size: 9px;
@@ -2851,6 +2897,19 @@ select.input-field option {
 
 /* Mobile Quality Tags */
 @media (max-width: 480px) {
+  .title-with-indicators {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .quality-tags-inline {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    gap: 3px;
+  }
+
   .quality-tags {
     gap: 3px;
   }

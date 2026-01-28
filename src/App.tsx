@@ -64,11 +64,13 @@ const TableRow = memo(({
       data-has-issues={issues.length > 0 ? 'true' : 'false'}
     >
       <td data-label="Title" className="table-cell">
-        <div className="row-number">{index + 1}</div>
-        <div style={{ flex: 1 }}>
-          {product.title}
+        <div className="title-with-indicators">
+          <div className="title-content">
+            <div className="row-number">{index + 1}</div>
+            <span>{product.title}</span>
+          </div>
           {issues.length > 0 && (
-            <div className="quality-tags">
+            <div className="quality-tags-inline">
               {issues.map((issue) => {
                 const tag = getIssueTag(issue)
                 return (
