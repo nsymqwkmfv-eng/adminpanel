@@ -60,6 +60,10 @@ img {
 .table-image {
   image-rendering: crisp-edges;
   image-rendering: -webkit-optimize-contrast;
+  width: 60px;
+  height: 80px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .perfume-table tbody tr {
@@ -2210,7 +2214,8 @@ select.input-field option {
     border: 1px solid var(--border-color);
     cursor: pointer;
     transition: background-color 0.15s ease;
-    contain: unset;
+    contain: layout style;
+    will-change: background-color;
   }
 
   .table-row:hover {

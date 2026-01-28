@@ -108,6 +108,7 @@ const TableRow = memo(({
           src={product.image} 
           alt={product.title} 
           className="table-image"
+          loading="lazy"
         />
       </td>
       <td data-label="Image Alt" className="table-cell slug-cell">{product.image_alt}</td>
@@ -132,10 +133,10 @@ const TableRow = memo(({
     </tr>
   )
 }, (prevProps, nextProps) => {
-  // Only re-render if product data changed, not on parent renders
-  return prevProps.product.slug === nextProps.product.slug &&
+  // Optimized comparison - avoid expensive JSON.stringify
+  return prevProps.product === nextProps.product &&
          prevProps.index === nextProps.index &&
-         JSON.stringify(prevProps.issues) === JSON.stringify(nextProps.issues) &&
+         prevProps.issues?.length === nextProps.issues?.length &&
          prevProps.duplicateColor === nextProps.duplicateColor
 })
 
@@ -904,7 +905,7 @@ function App() {
               
               return (
                 <TableRow
-                  key={product.slug + '-' + index}
+                  key={product.slug}
                   product={product}
                   index={index}
                   onClick={handleProductClick}
